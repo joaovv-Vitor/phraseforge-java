@@ -23,12 +23,16 @@
 - Slug uniqueness and tag/category/author name uniqueness enforced in service → 409.
 - Error body: `{ "status", "message", "timestamp" }` via `@RestControllerAdvice`; 400/404/409/500.
 - H2 test-scope-only. MySQL is the only runtime DB. No Testcontainers.
+- **H2 test isolation:** tests run against V1–V6 only — `V7__seed_data.sql` is EXCLUDED from the H2 test context (test `application.properties` sets `spring.flyway.target=6`). Tests start from an empty database and create their own fixture data. MySQL dev/runtime runs the full V1–V7 sequence (schema + seed).
+- **Test fixtures are self-contained:** no test may rely on seeded records or seeded names. Repository tests build their own authors/categories/tags/phrases with neutral names (e.g. "Test Author") and assert only against their own fixtures.
 - Migrations SQL must run on BOTH MySQL and H2 in MySQL mode (avoid `ENGINE=InnoDB` clauses and native/MySQL-only SQL).
 - No `sleep` in docker-compose; backend `depends_on` MySQL with `condition: service_healthy` + MySQL healthcheck.
 - UI language: Portuguese. No favorites/hearts anywhere (V1 feature). No auth/security.
 - UI text/labels in Portuguese; quote content left as authored.
 - `.env.example` committed; `.env` gitignored; no real credentials.
 - Frontend: `npm run build` (tsc -b && vite build) and `npm run lint` (oxlint) must pass. Backend: `./mvnw test` must pass.
+- **Phrase year semantics:** `phrases.year` (SMALLINT) represents the year associated with the phrase/source — not necessarily the exact date the phrase was spoken or written. The MVP does NOT model BCE/CE eras or approximate dates. Years are never presented as historically precise; seed data omits `year` where dating is uncertain. Documented in README.
+- **Educational workflow:** after EVERY completed task, the implementer provides a short summary covering: what was implemented; important Java/Spring concepts used; architectural decisions; tests added; and what should be studied before proceeding. Keep the implementation simple; no unnecessary abstractions.
 
 ---
 
@@ -112,6 +116,10 @@ spring.datasource.password=
 
 spring.jpa.hibernate.ddl-auto=validate
 spring.flyway.enabled=true
+# Tests run schema migrations V1-V6 only. V7__seed_data.sql is excluded so
+# tests start from an EMPTY database and build their own fixtures. MySQL
+# development/runtime applies V1-V7 (schema + seed).
+spring.flyway.target=6
 
 app.cors.allowed-origins=http://localhost:5173
 ```
@@ -159,6 +167,12 @@ Expected: `PhraseforgeApiApplicationTests.contextLoads` PASSES (uses H2 test con
 git add backend/phraseforge-api/pom.xml backend/phraseforge-api/src/main/resources/application.properties backend/phraseforge-api/src/test/resources/application.properties backend/phraseforge-api/src/main/java/com/phraseforge/phraseforge_api/config/CorsConfig.java
 git commit -m "feat(backend): add flyway, openapi, h2 test db, and CORS config"
 ```
+
+### Educational summary
+
+- **Java/Spring concepts:** dependency management via Spring Boot starter parent; env-var placeholders in `application.properties` (`${DB_HOST:localhost}`); CORS via `WebMvcConfigurer`; test-slice awareness (test `application.properties` overrides the datasource).
+- **Architectural decision:** a separate test properties file points tests at H2 (MySQL mode) while production config stays MySQL-only.
+- **Study before proceeding:** Spring property binding, profiles vs. separate test properties, how `@WebMvcTest`/`@DataJpaTest` slices pick up config.
 
 ---
 
@@ -277,6 +291,12 @@ Expected: `contextLoads` still passes. Flyway applies V1–V6 to H2 during conte
 git add backend/phraseforge-api/src/main/resources/db/migration/
 git commit -m "feat(backend): add Flyway schema migrations V1-V6"
 ```
+
+### Educational summary
+
+- **Java/Spring concepts:** Flyway versioned migrations; why `ddl-auto=validate` keeps Hibernate from owning the schema; portable SQL (no `ENGINE=` clauses) so H2 can execute the same files.
+- **Architectural decision:** schema defined once in SQL, applied to both MySQL (runtime) and H2 (tests).
+- **Study before proceeding:** Flyway checksums/locations, why migrations must be immutable once applied.
 
 ---
 
@@ -438,6 +458,12 @@ git add backend/phraseforge-api/src/main/java/com/phraseforge/phraseforge_api/co
 git commit -m "feat(backend): add auditable base entity, paged response, slug util"
 ```
 
+### Educational summary
+
+- **Java/Spring concepts:** `@MappedSuperclass` + `@EntityListeners(AuditingEntityListener.class)`; `@CreatedDate`/`@LastModifiedDate` with `@EnableJpaAuditing`; records for DTO-like carriers; `GenerationType.IDENTITY` for MySQL auto-increment.
+- **Architectural decision:** shared `AuditableEntity` removes per-entity audit repetition; `PagedResponse<T>` standardizes paging.
+- **Study before proceeding:** how JPA auditing hooks into the persistence lifecycle; `@PrePersist` vs Spring Data auditing.
+
 ---
 
 ## Task 4: Author domain — entity, repository, DTOs, mapper
@@ -564,6 +590,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -576,17 +603,17 @@ class AuthorRepositoryTest {
 
     @Test
     void findBySlug_returnsAuthor() {
-        authorRepository.save(new Author("Socrates", "socrates", -470, -399, null));
+        authorRepository.save(new Author("Test Author", "test-author", 1900, 1980, null));
 
-        Optional<Author> found = authorRepository.findBySlug("socrates");
+        Optional<Author> found = authorRepository.findBySlug("test-author");
 
         assertThat(found).isPresent();
-        assertThat(found.get().getName()).isEqualTo("Socrates");
+        assertThat(found.get().getName()).isEqualTo("Test Author");
     }
 
     @Test
     void findPhraseCounts_returnsZeroWhenNoPhrases() {
-        authorRepository.save(new Author("Socrates", "socrates", null, null, null));
+        authorRepository.save(new Author("Test Author", "test-author", null, null, null));
 
         List<Object[]> counts = authorRepository.findPhraseCounts();
 
@@ -597,7 +624,9 @@ class AuthorRepositoryTest {
 }
 ```
 
-Note: `List` needs `import java.util.List;`. H2 (MODE=MySQL) supports negative SMALLINT values.
+Note: tests build their own fixtures (empty DB — V7 seed is excluded) and use
+neutral names; no test depends on seeded data. `List` needs
+`import java.util.List;`. H2 (MODE=MySQL) supports the schema from V1.
 
 - [ ] **Step 3: Run to verify it fails**
 
@@ -785,6 +814,12 @@ git add backend/phraseforge-api/src/main/java/com/phraseforge/phraseforge_api/au
 git commit -m "feat(backend): add author entity, repository, DTOs, and mapper"
 ```
 
+### Educational summary
+
+- **Java/Spring concepts:** JPA `@Entity`/`@Table` mapping to an existing schema; Spring Data derived queries (`findBySlug`, `existsBySlug`); a `@Query` with `GROUP BY` projection to compute counts without N+1; records for request/response DTOs; `@DataJpaTest` for repository tests against H2.
+- **Architectural decision:** entity kept thin; mapping to DTOs done in a dedicated mapper.
+- **Study before proceeding:** lazy vs eager fetching; `@DataJpaTest` transaction rollback semantics.
+
 ---
 
 ## Task 5: Author service and controller
@@ -870,24 +905,24 @@ class AuthorServiceTest {
 
     @Test
     void create_generatesSlugAndSaves() {
-        when(authorRepository.existsByName("Socrates")).thenReturn(false);
-        when(authorRepository.existsBySlug("socrates")).thenReturn(false);
+        when(authorRepository.existsByName("Test Author")).thenReturn(false);
+        when(authorRepository.existsBySlug("test-author")).thenReturn(false);
         when(authorRepository.save(any(Author.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
-        var request = new CreateAuthorRequest("Socrates", -470, -399, "Greek philosopher");
+        var request = new CreateAuthorRequest("Test Author", 1900, 1980, "Test biography");
         var response = authorService.create(request);
 
-        assertThat(response.slug()).isEqualTo("socrates");
-        assertThat(response.name()).isEqualTo("Socrates");
+        assertThat(response.slug()).isEqualTo("test-author");
+        assertThat(response.name()).isEqualTo("Test Author");
         verify(authorRepository).save(any(Author.class));
     }
 
     @Test
     void create_duplicateName_throwsConflict() {
-        when(authorRepository.existsByName("Socrates")).thenReturn(true);
+        when(authorRepository.existsByName("Test Author")).thenReturn(true);
 
-        var request = new CreateAuthorRequest("Socrates", null, null, null);
+        var request = new CreateAuthorRequest("Test Author", null, null, null);
 
         assertThatThrownBy(() -> authorService.create(request))
                 .isInstanceOf(DuplicateResourceException.class);
@@ -1084,27 +1119,27 @@ class AuthorControllerTest {
     @Test
     void getById_returnsAuthor() throws Exception {
         when(authorService.getById(1L)).thenReturn(
-                new AuthorResponse(1L, "Socrates", "socrates", null, null, null, 0L, null, null));
+                new AuthorResponse(1L, "Test Author", "test-author", null, null, null, 0L, null, null));
 
         mockMvc.perform(get("/api/v1/authors/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name", is("Socrates")))
-                .andExpect(jsonPath("$.slug", is("socrates")));
+                .andExpect(jsonPath("$.name", is("Test Author")))
+                .andExpect(jsonPath("$.slug", is("test-author")));
     }
 
     @Test
     void create_validRequest_returnsCreated() throws Exception {
         when(authorService.create(any(CreateAuthorRequest.class))).thenReturn(
-                new AuthorResponse(1L, "Socrates", "socrates", null, null, null, 0L, null, null));
+                new AuthorResponse(1L, "Test Author", "test-author", null, null, null, 0L, null, null));
 
         String body = objectMapper.writeValueAsString(
-                new CreateAuthorRequest("Socrates", null, null, null));
+                new CreateAuthorRequest("Test Author", null, null, null));
 
         mockMvc.perform(post("/api/v1/authors")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(body))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.name", is("Socrates")));
+                .andExpect(jsonPath("$.name", is("Test Author")));
     }
 }
 ```
@@ -1192,6 +1227,12 @@ Expected: green.
 git add backend/phraseforge-api/src/main/java/com/phraseforge/phraseforge_api/author/ backend/phraseforge-api/src/main/java/com/phraseforge/phraseforge_api/exception/ backend/phraseforge-api/src/test/java/com/phraseforge/phraseforge_api/author/
 git commit -m "feat(backend): add author service and controller with CRUD"
 ```
+
+### Educational summary
+
+- **Java/Spring concepts:** `@Service` + `@Transactional`; constructor injection; custom runtime exceptions vs checked exceptions; `@RestControllerAdvice` not yet needed because controller tests mock the service; `@WebMvcTest` + `@MockitoBean` + MockMvc.
+- **Architectural decision:** duplicate checks live in the service (not DB constraints) so error messages are meaningful; business rules are testable in isolation with Mockito.
+- **Study before proceeding:** `@Transactional` propagation and when lazy collections load; Spring MVC content negotiation.
 
 ---
 
@@ -1842,6 +1883,12 @@ git add backend/phraseforge-api/src/main/java/com/phraseforge/phraseforge_api/ca
 git commit -m "feat(backend): add category domain with join entity and CRUD"
 ```
 
+### Educational summary
+
+- **Java/Spring concepts:** explicit join entity (`PhraseCategory`) with `@ManyToOne` on both sides and a `UNIQUE(phrase_id, category_id)` constraint — the JPA model mirrors the `phrase_categories` table exactly; `@Modifying` `@Query` bulk deletes.
+- **Architectural decision:** the N:N relationship goes through a join entity rather than a hidden `@ManyToMany`, keeping the DB model transparent.
+- **Study before proceeding:** join tables vs `@ManyToMany`; orphan/dangling rows when deleting a category.
+
 ---
 
 ## Task 7: Tag domain — full stack
@@ -2344,6 +2391,12 @@ git add backend/phraseforge-api/src/main/java/com/phraseforge/phraseforge_api/ta
 git commit -m "feat(backend): add tag domain with join entity and CRUD"
 ```
 
+### Educational summary
+
+- **Java/Spring concepts:** same layered pattern applied to a simpler entity (`Tag` has no slug); service-layer uniqueness check for the `name` column.
+- **Architectural decision:** tags are managed independently and linked to phrases only through phrase create/update.
+- **Study before proceeding:** `@Modifying` deletes require transaction boundaries; referential integrity between `phrase_tags` and `tags`.
+
 ---
 
 ## Task 8: Phrase domain — entity, repository, DTOs, mapper, specifications
@@ -2360,13 +2413,13 @@ git commit -m "feat(backend): add tag domain with join entity and CRUD"
 - Create: `.../phrase/dto/CreatePhraseRequest.java`
 - Create: `.../phrase/dto/UpdatePhraseRequest.java`
 - Create: `.../phrase/PhraseMapper.java`
-- Test: `.../phrase/PhraseRepositoryTest.java`
+- Test: `.../phrase/PhraseRepositoryTest.java`, `.../phrase/PhraseSpecificationsTest.java`
 
 **Interfaces:**
 - Consumes: `Author`, `Category`, `Tag`, join entities from Tasks 4/6/7, `SlugUtil` (not used here).
 - Produces:
   - `Phrase` entity (extends `AuditableEntity`): `Long getId()`, `String getContent()`, `Author getAuthor()`, `Integer getYear()`, `String getLanguage()`, `String getSource()`, `List<PhraseCategory> getPhraseCategories()`, `List<PhraseTag> getPhraseTags()`, plus `getCategories()`/`getTags()` convenience (mapped lists of `Category`/`Tag`), and setters.
-  - `PhraseRepository extends JpaRepository<Phrase, Long>`: `boolean existsByContentAndAuthor_Id(String content, Long authorId)`, `long count()`, `Optional<Phrase> findWithDetailsById(Long id)`.
+  - `PhraseRepository extends JpaRepository<Phrase, Long>`: `boolean existsByContentAndAuthor_Id(String content, Long authorId)`, `boolean existsByContentAndAuthor_IdAndIdNot(String content, Long authorId, Long excludeId)`, `long count()`, `Optional<Phrase> findWithDetailsById(Long id)`.
   - `PhraseSpecifications.filter(String query, Long authorId, Long categoryId, Long tagId, String language)` returning `Specification<Phrase>`.
   - DTOs and `PhraseMapper` (component): `PhraseSummaryResponse toSummary(Phrase)`, `PhraseResponse toResponse(Phrase)`.
 
@@ -2396,19 +2449,42 @@ class PhraseRepositoryTest {
 
     @Test
     void existsByContentAndAuthorId_detectsDuplicates() {
-        Author author = authorRepository.save(new Author("Socrates", "socrates", null, null, null));
-        phraseRepository.save(new Phrase("Know thyself.", author, null, "en", null));
+        Author author = authorRepository.save(new Author("Test Author", "test-author", null, null, null));
+        phraseRepository.save(new Phrase("Shared content", author, null, "en", null));
 
-        boolean exists = phraseRepository.existsByContentAndAuthor_Id("Know thyself.", author.getId());
-        boolean otherAuthor = phraseRepository.existsByContentAndAuthor_Id("Know thyself.", 999L);
+        boolean exists = phraseRepository.existsByContentAndAuthor_Id("Shared content", author.getId());
+        boolean otherAuthor = phraseRepository.existsByContentAndAuthor_Id("Shared content", 999L);
 
         assertThat(exists).isTrue();
         assertThat(otherAuthor).isFalse();
     }
 
     @Test
+    void existsByContentAndAuthorIdAndIdNot_excludesGivenPhrase() {
+        Author author = authorRepository.save(new Author("Test Author", "test-author", null, null, null));
+        Phrase first = phraseRepository.save(new Phrase("Shared content", author, null, "en", null));
+        Phrase second = phraseRepository.save(new Phrase("Shared content", author, null, "en", null));
+
+        boolean excludingFirst = phraseRepository.existsByContentAndAuthor_IdAndIdNot("Shared content", author.getId(), first.getId());
+        boolean excludingAll = phraseRepository.existsByContentAndAuthor_IdAndIdNot("Shared content", author.getId(), second.getId());
+
+        assertThat(excludingFirst).isTrue();   // second still matches
+        assertThat(excludingAll).isTrue();     // first still matches
+    }
+
+    @Test
+    void existsByContentAndAuthorIdAndIdNot_returnsFalseWhenNoOtherMatch() {
+        Author author = authorRepository.save(new Author("Test Author", "test-author", null, null, null));
+        Phrase only = phraseRepository.save(new Phrase("Unique content", author, null, "en", null));
+
+        boolean found = phraseRepository.existsByContentAndAuthor_IdAndIdNot("Unique content", author.getId(), only.getId());
+
+        assertThat(found).isFalse();
+    }
+
+    @Test
     void count_returnsTotal() {
-        Author author = authorRepository.save(new Author("Socrates", "socrates", null, null, null));
+        Author author = authorRepository.save(new Author("Test Author", "test-author", null, null, null));
         phraseRepository.save(new Phrase("One", author, null, "en", null));
         phraseRepository.save(new Phrase("Two", author, null, "pt", null));
 
@@ -2559,6 +2635,12 @@ public interface PhraseRepository
     boolean existsByContentAndAuthor_Id(String content, Long authorId);
 
     /**
+     * Duplicate check for updates: true if another phrase (id != excludeId)
+     * has the same content under the same author.
+     */
+    boolean existsByContentAndAuthor_IdAndIdNot(String content, Long authorId, Long excludeId);
+
+    /**
      * Loads a phrase with its author, categories, and tags in one query
      * (avoids N+1 when serializing the detail view).
      */
@@ -2632,7 +2714,7 @@ public final class PhraseSpecifications {
 }
 ```
 
-Note: categoryId filter uses `cq.distinct(true)` to avoid duplicate rows from the two joins. tagId join also requires `cq.distinct(true)` — the implementation is refined in Task 9 Step 3 to keep a single join per predicate; review both steps together for correctness.
+Note: this first version joins `phraseCategories`/`phraseTags` separately per predicate and can produce duplicate rows. Task 9 Step 2 replaces `filter(...)` with the corrected single-join + `cq.distinct(true)` version, and Task 9 Step 3's integration tests verify no duplicates are returned when filtering by category/tag.
 
 - [ ] **Step 7: Create the DTOs**
 
@@ -2877,6 +2959,12 @@ git add backend/phraseforge-api/src/main/java/com/phraseforge/phraseforge_api/ph
 git commit -m "feat(backend): add phrase entity, repository, specifications, DTOs, and mapper"
 ```
 
+### Educational summary
+
+- **Java/Spring concepts:** `JpaSpecificationExecutor` + `Specification` for dynamic filters; `@EntityGraph` to eager-fetch author/categories/tags and avoid N+1; derived `existsByContentAndAuthor_Id...` queries; stream mapping into records.
+- **Architectural decision:** Specifications keep the filter logic declarative and testable instead of hand-written queries per combination.
+- **Study before completion of this task:** JPA Criteria API basics (`root`, `cb`, `Predicate`), entity graphs and join fetching.
+
 ---
 
 ## Task 9: Phrase service and controller + author/category phrases endpoints
@@ -2888,7 +2976,7 @@ git commit -m "feat(backend): add phrase entity, repository, specifications, DTO
 - Modify: `.../category/CategoryController.java` (add `/api/v1/categories/{id}/phrases`)
 - Create: `.../phrase/PhraseService.java`
 - Create: `.../phrase/PhraseController.java`
-- Test: `.../phrase/PhraseServiceTest.java`, `.../phrase/PhraseControllerTest.java`
+- Test: `.../phrase/PhraseServiceTest.java`, `.../phrase/PhraseControllerTest.java`, `.../phrase/PhraseSpecificationsTest.java`
 
 **Interfaces:**
 - Consumes: all Task 8 artifacts; `AuthorRepository`, `CategoryRepository`, `TagRepository`, `PhraseCategoryRepository`.
@@ -2917,6 +3005,13 @@ public interface PhraseRepository
         extends JpaRepository<Phrase, Long>, JpaSpecificationExecutor<Phrase> {
 
     boolean existsByContentAndAuthor_Id(String content, Long authorId);
+
+    /**
+     * Duplicate check for updates: true if another phrase (id != excludeId)
+     * has the same content under the same author. Runs as a single SQL query
+     * instead of loading and filtering phrases in memory.
+     */
+    boolean existsByContentAndAuthor_IdAndIdNot(String content, Long authorId, Long excludeId);
 
     @EntityGraph(attributePaths = {"author", "phraseCategories.category", "phraseTags.tag"})
     Optional<Phrase> findWithDetailsById(Long id);
@@ -2979,7 +3074,149 @@ Replace the body of `filter(...)` with this corrected version (single join reuse
 
 Note: the final `Predicate` import is still needed at the top of the file; `JoinType` remains imported.
 
-- [ ] **Step 3: Write the failing service test**
+- [ ] **Step 3: Write the failing filter integration test**
+
+`phrase/PhraseSpecificationsTest.java` — `@DataJpaTest` against an empty DB
+(fixtures built by the test); covers every filter, combinations, and verifies
+pagination does not return duplicate phrases when filtering by category/tag:
+
+```java
+package com.phraseforge.phraseforge_api.phrase;
+
+import com.phraseforge.phraseforge_api.author.Author;
+import com.phraseforge.phraseforge_api.author.AuthorRepository;
+import com.phraseforge.phraseforge_api.category.Category;
+import com.phraseforge.phraseforge_api.category.CategoryRepository;
+import com.phraseforge.phraseforge_api.tag.Tag;
+import com.phraseforge.phraseforge_api.tag.TagRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.jpa.domain.Specification;
+
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+@DataJpaTest
+class PhraseSpecificationsTest {
+
+    @Autowired
+    private PhraseRepository phraseRepository;
+    @Autowired
+    private AuthorRepository authorRepository;
+    @Autowired
+    private CategoryRepository categoryRepository;
+    @Autowired
+    private TagRepository tagRepository;
+
+    private Author authorA;
+    private Author authorB;
+    private Category philosophy;
+    private Category stoicism;
+    private Tag mind;
+    private Tag strength;
+
+    @BeforeEach
+    void setUp() {
+        authorA = authorRepository.save(new Author("Test Author A", "test-author-a", null, null, null));
+        authorB = authorRepository.save(new Author("Test Author B", "test-author-b", null, null, null));
+        philosophy = categoryRepository.save(new Category("Philosophy", "philosophy", null));
+        stoicism = categoryRepository.save(new Category("Stoicism", "stoicism", null));
+        mind = tagRepository.save(new Tag("mind"));
+        strength = tagRepository.save(new Tag("strength"));
+
+        // Phrase 1: authorA, philosophy, mind
+        savePhrase("The unexamined life", authorA, "en", List.of(philosophy), List.of(mind));
+        // Phrase 2: authorA, philosophy AND stoicism, mind AND strength (multi-join: dedup must hold)
+        savePhrase("What stands in the way becomes the way", authorA, "en", List.of(philosophy, stoicism), List.of(mind, strength));
+        // Phrase 3: authorB, stoicism, strength
+        savePhrase("Apenas os instruídos são livres", authorB, "pt", List.of(stoicism), List.of(strength));
+    }
+
+    private void savePhrase(String content, Author author, String language,
+                            List<Category> categories, List<Tag> tags) {
+        Phrase phrase = new Phrase(content, author, null, language, null);
+        categories.forEach(c -> phrase.getPhraseCategories().add(new PhraseCategory(phrase, c)));
+        tags.forEach(t -> phrase.getPhraseTags().add(new PhraseTag(phrase, t)));
+        phraseRepository.save(phrase);
+    }
+
+    private List<Long> findIds(Specification<Phrase> spec) {
+        Page<Phrase> page = phraseRepository.findAll(spec, PageRequest.of(0, 20));
+        return page.getContent().stream().map(Phrase::getId).toList();
+    }
+
+    @Test
+    void query_matchesContent() {
+        List<Long> ids = findIds(PhraseSpecifications.filter("unexamined", null, null, null, null));
+        assertThat(ids).hasSize(1);
+    }
+
+    @Test
+    void query_matchesAuthorName() {
+        List<Long> ids = findIds(PhraseSpecifications.filter("Author B", null, null, null, null));
+        assertThat(ids).hasSize(1);
+    }
+
+    @Test
+    void authorId_filtersByAuthor() {
+        List<Long> ids = findIds(PhraseSpecifications.filter(null, authorB.getId(), null, null, null));
+        assertThat(ids).hasSize(1);
+    }
+
+    @Test
+    void categoryId_filtersByCategory() {
+        List<Long> ids = findIds(PhraseSpecifications.filter(null, null, philosophy.getId(), null, null));
+        assertThat(ids).hasSize(2);
+    }
+
+    @Test
+    void tagId_filtersByTag() {
+        List<Long> ids = findIds(PhraseSpecifications.filter(null, null, null, mind.getId(), null));
+        assertThat(ids).hasSize(2);
+    }
+
+    @Test
+    void language_filtersByLanguage() {
+        List<Long> ids = findIds(PhraseSpecifications.filter(null, null, null, null, "pt"));
+        assertThat(ids).hasSize(1);
+    }
+
+    @Test
+    void combinations_authorAndCategoryAndTag() {
+        List<Long> ids = findIds(PhraseSpecifications.filter(null, authorA.getId(), stoicism.getId(), mind.getId(), "en"));
+        assertThat(ids).hasSize(1);
+    }
+
+    @Test
+    void categoryFilter_doesNotDuplicatePhrases() {
+        // Phrase 2 belongs to BOTH philosophy and stoicism and has two tags.
+        // A cartesian join would return it twice; distinct() must collapse it.
+        List<Long> ids = findIds(PhraseSpecifications.filter(null, null, stoicism.getId(), null, null));
+        assertThat(ids).hasSize(2);
+        assertThat(ids).doesNotHaveDuplicates();
+    }
+
+    @Test
+    void tagFilter_doesNotDuplicatePhrases() {
+        List<Long> ids = findIds(PhraseSpecifications.filter(null, null, null, strength.getId(), null));
+        assertThat(ids).hasSize(2);
+        assertThat(ids).doesNotHaveDuplicates();
+    }
+}
+```
+
+- [ ] **Step 4: Run the filter test to verify it fails**
+
+Run: `cd backend/phraseforge-api && ./mvnw test -Dtest=PhraseSpecificationsTest`
+Expected: FAIL (either compile error because the final `filter`/`findAll` does not
+exist yet, or assertion failures on duplicates before `distinct` is wired in Step 2).
+
+- [ ] **Step 5: Write the failing service test**
 
 `phrase/PhraseServiceTest.java`:
 
@@ -3030,27 +3267,39 @@ class PhraseServiceTest {
 
     @Test
     void create_savesPhrase() {
-        Author author = new Author("Socrates", "socrates", null, null, null);
+        Author author = new Author("Test Author", "test-author", null, null, null);
         when(authorRepository.findById(1L)).thenReturn(Optional.of(author));
-        when(phraseRepository.existsByContentAndAuthor_Id("Know thyself.", 1L)).thenReturn(false);
+        when(phraseRepository.existsByContentAndAuthor_Id("Shared content", 1L)).thenReturn(false);
         when(phraseRepository.save(any(Phrase.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(phraseMapper.toResponse(any(Phrase.class)))
-                .thenReturn(new PhraseResponse(1L, "Know thyself.", null, "en", null, null, null, null, null, null));
+                .thenReturn(new PhraseResponse(1L, "Shared content", null, "en", null, null, null, null, null, null));
 
         PhraseResponse response = phraseService.create(
-                new CreatePhraseRequest("Know thyself.", 1L, null, "en", null, Set.of(), Set.of()));
+                new CreatePhraseRequest("Shared content", 1L, null, "en", null, Set.of(), Set.of()));
 
-        assertThat(response.content()).isEqualTo("Know thyself.");
+        assertThat(response.content()).isEqualTo("Shared content");
         verify(phraseRepository).save(any(Phrase.class));
     }
 
     @Test
     void create_duplicateContentAndAuthor_throwsConflict() {
-        when(authorRepository.findById(1L)).thenReturn(Optional.of(new Author("Socrates", "socrates", null, null, null)));
-        when(phraseRepository.existsByContentAndAuthor_Id("Know thyself.", 1L)).thenReturn(true);
+        when(authorRepository.findById(1L)).thenReturn(Optional.of(new Author("Test Author", "test-author", null, null, null)));
+        when(phraseRepository.existsByContentAndAuthor_Id("Shared content", 1L)).thenReturn(true);
 
         assertThatThrownBy(() -> phraseService.create(
-                new CreatePhraseRequest("Know thyself.", 1L, null, "en", null, Set.of(), Set.of())))
+                new CreatePhraseRequest("Shared content", 1L, null, "en", null, Set.of(), Set.of())))
+                .isInstanceOf(DuplicateResourceException.class);
+        verify(phraseRepository, never()).save(any(Phrase.class));
+    }
+
+    @Test
+    void update_duplicateContentAndAuthor_throwsConflict() {
+        Phrase existing = new Phrase("Original content", new Author("Test Author", "test-author", null, null, null), null, "en", null);
+        when(phraseRepository.findWithDetailsById(99L)).thenReturn(Optional.of(existing));
+        when(phraseRepository.existsByContentAndAuthor_IdAndIdNot("Shared content", 1L, 99L)).thenReturn(true);
+
+        assertThatThrownBy(() -> phraseService.update(99L,
+                new UpdatePhraseRequest("Shared content", 1L, null, "en", null, Set.of(), Set.of())))
                 .isInstanceOf(DuplicateResourceException.class);
         verify(phraseRepository, never()).save(any(Phrase.class));
     }
@@ -3074,12 +3323,12 @@ class PhraseServiceTest {
 }
 ```
 
-- [ ] **Step 4: Run to verify it fails**
+- [ ] **Step 6: Run to verify it fails**
 
 Run: `cd backend/phraseforge-api && ./mvnw test -Dtest=PhraseServiceTest`
 Expected: COMPILATION FAILURE — `PhraseService` missing.
 
-- [ ] **Step 5: Create the service**
+- [ ] **Step 7: Create the service**
 
 `phrase/PhraseService.java`:
 
@@ -3200,12 +3449,9 @@ public class PhraseService {
     }
 
     private void ensureNotDuplicateExcluding(String content, Long authorId, Long excludeId) {
-        Phrase existing = phraseRepository.findAll(PhraseSpecifications.filter(null, authorId, null, null, null))
-                .stream()
-                .filter(p -> p.getContent().equals(content) && !p.getId().equals(excludeId))
-                .findFirst()
-                .orElse(null);
-        if (existing != null) {
+        // Runs at the database level; excludes the phrase being updated so an
+        // unchanged phrase does not trip its own duplicate check.
+        if (phraseRepository.existsByContentAndAuthor_IdAndIdNot(content, authorId, excludeId)) {
             throw new DuplicateResourceException(
                     "Phrase with the same content already exists for this author");
         }
@@ -3246,12 +3492,12 @@ public class PhraseService {
 
 Note: `findAll(spec)` with no `Pageable` returns a `List<Phrase>`; the `Pageable`-less overload is used only in `ensureNotDuplicateExcluding` (small data, MVP scale). The unused `Function` import should be removed.
 
-- [ ] **Step 6: Run the service test to verify it passes**
+- [ ] **Step 8: Run the service test to verify it passes**
 
 Run: `cd backend/phraseforge-api && ./mvnw test -Dtest=PhraseServiceTest`
 Expected: PASS.
 
-- [ ] **Step 7: Write the failing controller test**
+- [ ] **Step 9: Write the failing controller test**
 
 `phrase/PhraseControllerTest.java`:
 
@@ -3322,12 +3568,12 @@ class PhraseControllerTest {
 }
 ```
 
-- [ ] **Step 8: Run to verify it fails**
+- [ ] **Step 10: Run to verify it fails**
 
 Run: `cd backend/phraseforge-api && ./mvnw test -Dtest=PhraseControllerTest`
 Expected: FAIL — controller missing (or 404 on `/random` if only partially wired).
 
-- [ ] **Step 9: Create the controller**
+- [ ] **Step 11: Create the controller**
 
 `phrase/PhraseController.java` — note `/random` is declared BEFORE `/{id}` so it never gets captured by the path variable:
 
@@ -3403,7 +3649,7 @@ public class PhraseController {
 }
 ```
 
-- [ ] **Step 10: Add author/category phrases endpoints**
+- [ ] **Step 12: Add author/category phrases endpoints**
 
 > Adding `PhraseService` as a constructor dependency to these controllers changes
 > their `@WebMvcTest` beans. Add to BOTH `AuthorControllerTest` and
@@ -3440,7 +3686,7 @@ public class PhraseController {
     }
 ```
 
-- [ ] **Step 11: Run full suite, then commit**
+- [ ] **Step 13: Run full suite, then commit**
 
 Run: `cd backend/phraseforge-api && ./mvnw test`
 Expected: all green (both new controller tests and previously passing tests).
@@ -3449,6 +3695,12 @@ Expected: all green (both new controller tests and previously passing tests).
 git add backend/phraseforge-api/src/main/java/com/phraseforge/phraseforge_api/phrase/ backend/phraseforge-api/src/main/java/com/phraseforge/phraseforge_api/author/AuthorController.java backend/phraseforge-api/src/main/java/com/phraseforge/phraseforge_api/category/CategoryController.java backend/phraseforge-api/src/test/java/com/phraseforge/phraseforge_api/phrase/
 git commit -m "feat(backend): add phrase service and controller with filters, random, and nested endpoints"
 ```
+
+### Educational summary
+
+- **Java/Spring concepts:** `distinct(true)` + explicit joins to avoid duplicate rows from collection joins; `@EntityGraph` on a `findAll(Specification, Pageable)` override; `SecureRandom` for the random-phrase offset; controller route ordering so `/random` is not captured by `/{id}`.
+- **Architectural decision:** the duplicate-on-update rule is pushed into a single repository query (`existsByContentAndAuthor_IdAndIdNot`) instead of filtering in memory.
+- **Study before proceeding:** Criteria join semantics, `cq.distinct`, and why a single query beats loading everything into memory.
 
 ---
 
@@ -3748,12 +4000,18 @@ SELECT p.id, t.id FROM phrases p JOIN tags t ON t.name = 'liberdade' WHERE p.con
 - [ ] **Step 6: Run full suite, then commit**
 
 Run: `cd backend/phraseforge-api && ./mvnw test`
-Expected: green (seed migration applies on H2 during test context startup).
+Expected: green (V7 seed is EXCLUDED from the H2 test context via `spring.flyway.target=6`; tests use only V1–V6 schema migrations).
 
 ```bash
 git add backend/phraseforge-api/src/main/java/com/phraseforge/phraseforge_api/exception/ backend/phraseforge-api/src/main/java/com/phraseforge/phraseforge_api/config/OpenApiConfig.java backend/phraseforge-api/src/main/resources/db/migration/V7__seed_data.sql backend/phraseforge-api/src/test/java/com/phraseforge/phraseforge_api/exception/
 git commit -m "feat(backend): add global exception handling, OpenAPI config, and seed data"
 ```
+
+### Educational summary
+
+- **Java/Spring concepts:** `@RestControllerAdvice` + `@ExceptionHandler` mapping domain exceptions to consistent HTTP responses; `ApiError` record body; `DataIntegrityViolationException` as a safety net for unique-constraint races; springdoc `OpenAPI` bean.
+- **Architectural decision:** error contract `{status, message, timestamp}` is uniform across 400/404/409/500 and never leaks stack traces.
+- **Study before proceeding:** exception handler precedence, `@ResponseStatus` vs handler methods.
 
 ---
 
@@ -3841,6 +4099,12 @@ Stop the spring-boot process; run `docker compose down` (volume preserved) — i
 git add docker-compose.yml .env.example
 git commit -m "chore(infra): add docker-compose for MySQL and .env.example"
 ```
+
+### Educational summary
+
+- **Java/Spring concepts:** end-to-end verification against a real MySQL (Flyway + seed applied); docker-compose service health.
+- **Architectural decision:** MySQL healthcheck + compose volume; `.env.example` keeps credentials out of the repo.
+- **Study before proceeding:** how Flyway behaves on an already-populated volume.
 
 ---
 
@@ -4046,9 +4310,35 @@ export interface PhraseFilters {
   page?: number
   size?: number
 }
+
+export interface AuthorPayload {
+  name: string
+  birthYear: number | null
+  deathYear: number | null
+  biography: string | null
+}
+
+export interface CategoryPayload {
+  name: string
+  description: string | null
+}
+
+export interface TagPayload {
+  name: string
+}
+
+export interface PhrasePayload {
+  content: string
+  authorId: number
+  year: number | null
+  language: string
+  source: string | null
+  categoryIds: number[]
+  tagIds: number[]
+}
 ```
 
-Note: `PhraseSummary` is aliased to `Phrase` for MVP simplicity (the API returns the same shape from list and detail).
+Note: `PhraseSummary` is aliased to `Phrase` for MVP simplicity (the API returns the same shape from list and detail). The `*Payload` interfaces are shared by the services (Task 13) and the reusable admin forms (Task 21) — they live here so no component imports payload types from a service module.
 
 - [ ] **Step 7: Create utils**
 
@@ -4118,6 +4408,12 @@ Expected: build + lint pass.
 git add frontend/package.json frontend/package-lock.json frontend/index.html frontend/vite.config.ts frontend/src/
 git commit -m "feat(frontend): scaffold Vite app with Tailwind tokens, router, and types"
 ```
+
+### Educational summary
+
+- **Frontend/TS concepts:** Tailwind v4 `@theme` tokens translating prototype CSS vars; Vite dev proxy removing CORS from the equation; `createBrowserRouter`;
+- **Architectural decision:** centralized types mirror the API's DTOs; shared payload interfaces keep services and forms consistent.
+- **Study before proceeding:** Tailwind v4 theme configuration, Vite proxy semantics.
 
 ---
 
@@ -4207,7 +4503,7 @@ export function del<T>(path: string): Promise<T> {
 
 ```ts
 import { del, get, post, put } from './api'
-import type { Paged, Phrase, PhraseFilters } from '../types/models'
+import type { Paged, Phrase, PhraseFilters, PhrasePayload } from '../types/models'
 
 function buildQuery(filters: PhraseFilters): string {
   const params = new URLSearchParams()
@@ -4219,16 +4515,6 @@ function buildQuery(filters: PhraseFilters): string {
   params.set('page', String(filters.page ?? 0))
   params.set('size', String(filters.size ?? 20))
   return params.toString()
-}
-
-export interface PhrasePayload {
-  content: string
-  authorId: number
-  year: number | null
-  language: string
-  source: string | null
-  categoryIds: number[]
-  tagIds: number[]
 }
 
 export function getPhrases(filters: PhraseFilters = {}): Promise<Paged<Phrase>> {
@@ -4262,14 +4548,7 @@ export function deletePhrase(id: number): Promise<void> {
 
 ```ts
 import { del, get, post, put } from './api'
-import type { Author, AuthorSummary, Paged, Phrase } from '../types/models'
-
-export interface AuthorPayload {
-  name: string
-  birthYear: number | null
-  deathYear: number | null
-  biography: string | null
-}
+import type { Author, AuthorPayload, AuthorSummary, Paged, Phrase } from '../types/models'
 
 export function getAuthors(page = 0, size = 20): Promise<Paged<AuthorSummary>> {
   return get<Paged<AuthorSummary>>(`/authors?page=${page}&size=${size}`)
@@ -4302,12 +4581,7 @@ export function deleteAuthor(id: number): Promise<void> {
 
 ```ts
 import { del, get, post, put } from './api'
-import type { Category, CategorySummary, Paged, Phrase } from '../types/models'
-
-export interface CategoryPayload {
-  name: string
-  description: string | null
-}
+import type { Category, CategoryPayload, CategorySummary, Paged, Phrase } from '../types/models'
 
 export function getCategories(page = 0, size = 50): Promise<Paged<CategorySummary>> {
   return get<Paged<CategorySummary>>(`/categories?page=${page}&size=${size}`)
@@ -4340,11 +4614,7 @@ export function deleteCategory(id: number): Promise<void> {
 
 ```ts
 import { del, get, post, put } from './api'
-import type { Paged, Tag } from '../types/models'
-
-export interface TagPayload {
-  name: string
-}
+import type { Paged, Tag, TagPayload } from '../types/models'
 
 export function getTags(page = 0, size = 100): Promise<Paged<Tag>> {
   return get<Paged<Tag>>(`/tags?page=${page}&size=${size}`)
@@ -4372,6 +4642,12 @@ Expected: pass.
 git add frontend/src/services/
 git commit -m "feat(frontend): add centralized HTTP client and API service modules"
 ```
+
+### Educational summary
+
+- **Frontend/TS concepts:** a single `fetch` wrapper (`api.ts`) with typed helpers and centralized error handling; per-domain service modules.
+- **Architectural decision:** components never call `fetch` directly — all HTTP flows through services, so the API surface is easy to mock/replace.
+- **Study before proceeding:** `URLSearchParams`, handling `204` responses, typed error bodies.
 
 ---
 
@@ -4647,6 +4923,12 @@ Expected: pass.
 git add frontend/src/hooks/
 git commit -m "feat(frontend): add TanStack Query hooks for all resources"
 ```
+
+### Educational summary
+
+- **Frontend/TS concepts:** TanStack Query hooks (`useQuery`, `useMutation`, `useQueryClient`) with structured query keys and cache invalidation.
+- **Architectural decision:** every server call has a hook; components consume data through hooks, decoupling UI from data fetching.
+- **Study before proceeding:** query key design, optimistic updates, invalidateQueries.
 
 ---
 
@@ -5024,6 +5306,12 @@ git add frontend/src/layouts/ frontend/src/components/ frontend/src/lib/useCopy.
 git commit -m "feat(frontend): add shared layout, header, footer, and presentational components"
 ```
 
+### Educational summary
+
+- **Frontend/React concepts:** layout routes with `Outlet`; reusable presentational components (QuoteCard, Chip, PillButton, Pagination, states); custom `useCopy` hook for clipboard feedback.
+- **Architectural decision:** shared components keep pages small and the design system consistent.
+- **Study before proceeding:** React Router nested routes, `useEffect` scroll restoration, hook design.
+
 ---
 
 ## Task 16: Home page (random quote)
@@ -5164,6 +5452,12 @@ git add frontend/src/pages/Home.tsx frontend/src/App.tsx
 git commit -m "feat(frontend): add Home page with random quote"
 ```
 
+### Educational summary
+
+- **Frontend/React concepts:** server-state refresh via `removeQueries` + `refetch` to fetch a new random quote; CSS transition for the quote swap.
+- **Architectural decision:** Home is a single-query page; no favorites (V1).
+- **Study before proceeding:** TanStack Query cache key management.
+
 ---
 
 ## Task 17: Explore page
@@ -5291,6 +5585,12 @@ Expected: pass.
 git add frontend/src/pages/Explore.tsx frontend/src/App.tsx
 git commit -m "feat(frontend): add Explore page with search, filters, and pagination"
 ```
+
+### Educational summary
+
+- **Frontend/React concepts:** controlled inputs driving query params; category pill filters; pagination via `usePhrases`.
+- **Architectural decision:** filters map 1:1 to API query params — the frontend adds no filter logic of its own.
+- **Study before proceeding:** debouncing search input (optional improvement, not required for MVP).
 
 ---
 
@@ -5430,6 +5730,12 @@ Expected: pass.
 git add frontend/src/pages/QuoteDetail.tsx frontend/src/App.tsx
 git commit -m "feat(frontend): add Quote Detail page with related phrases"
 ```
+
+### Educational summary
+
+- **Frontend/React concepts:** reading URL params with `useParams`; combining detail + related-list queries.
+- **Architectural decision:** related phrases reuse the author filter of the phrases endpoint.
+- **Study before proceeding:** parallel queries and loading states.
 
 ---
 
@@ -5621,6 +5927,12 @@ git add frontend/src/pages/Authors.tsx frontend/src/pages/AuthorDetail.tsx front
 git commit -m "feat(frontend): add Authors and Author Detail pages"
 ```
 
+### Educational summary
+
+- **Frontend/React concepts:** list pages with client-side search over a loaded page; detail pages composing author + phrase queries.
+- **Architectural decision:** author search is client-side for MVP (small dataset); server-side search is a V2 option.
+- **Study before proceeding:** `useMemo` for derived filtered lists.
+
 ---
 
 ## Task 20: Categories and Category Detail pages
@@ -5776,16 +6088,26 @@ git add frontend/src/pages/Categories.tsx frontend/src/pages/CategoryDetail.tsx 
 git commit -m "feat(frontend): add Categories and Category Detail pages"
 ```
 
+### Educational summary
+
+- **Frontend/React concepts:** category listing with counts; category detail reusing the phrases grid.
+- **Architectural decision:** counts come from the API's summary DTO, not client-side computation.
+- **Study before proceeding:** reusing shared grid components across pages.
+
 ---
 
-## Task 21: Admin area
+## Task 21: Admin area (full CRUD)
 
 **Files:**
 - Create: `frontend/src/layouts/AdminLayout.tsx`
 - Create: `frontend/src/components/admin/StatCard.tsx`
-- Create: `frontend/src/components/admin/EntityTable.tsx`
 - Create: `frontend/src/components/admin/FormField.tsx`
 - Create: `frontend/src/components/admin/ActionBar.tsx`
+- Create: `frontend/src/components/admin/EntityTable.tsx`
+- Create: `frontend/src/components/admin/AuthorForm.tsx`
+- Create: `frontend/src/components/admin/CategoryForm.tsx`
+- Create: `frontend/src/components/admin/TagForm.tsx`
+- Create: `frontend/src/components/admin/PhraseForm.tsx`
 - Create: `frontend/src/pages/admin/Dashboard.tsx`
 - Create: `frontend/src/pages/admin/AdminPhrases.tsx`
 - Create: `frontend/src/pages/admin/AdminAuthors.tsx`
@@ -5795,7 +6117,7 @@ git commit -m "feat(frontend): add Categories and Category Detail pages"
 
 **Interfaces:**
 - Consumes: hooks + services + shared components.
-- Produces: `/admin` routes with sidebar (Painel, Frases, Autores, Categorias, Tags), stat cards, CRUD tables and forms. No auth (MVP).
+- Produces: `/admin` routes with sidebar (Painel, Frases, Autores, Categorias, Tags). Full CRUD for all four resources — create, read/view, update, and delete — reusing a single form component per resource for both create and edit. No auth (MVP).
 
 - [ ] **Step 1: Create AdminLayout**
 
@@ -5943,9 +6265,341 @@ export default function EntityTable({ children }: { children: ReactNode }) {
 }
 ```
 
-- [ ] **Step 3: Create the Dashboard**
+- [ ] **Step 3: Create the reusable AuthorForm (used for create AND edit)**
 
-`frontend/src/pages/admin/Dashboard.tsx` — stat cards using list totals:
+`frontend/src/components/admin/AuthorForm.tsx`:
+
+```tsx
+import { useState } from 'react'
+import FormField from './FormField'
+import type { Author, AuthorPayload } from '../../types/models'
+
+export default function AuthorForm({
+  author,
+  submitLabel,
+  onSubmit,
+  onCancel,
+}: {
+  author?: Author | null
+  submitLabel: string
+  onSubmit: (payload: AuthorPayload) => Promise<void>
+  onCancel: () => void
+}) {
+  const [name, setName] = useState(author?.name ?? '')
+  const [birthYear, setBirthYear] = useState(author?.birthYear != null ? String(author.birthYear) : '')
+  const [deathYear, setDeathYear] = useState(author?.deathYear != null ? String(author.deathYear) : '')
+  const [biography, setBiography] = useState(author?.biography ?? '')
+  const [submitting, setSubmitting] = useState(false)
+
+  const submit = async () => {
+    setSubmitting(true)
+    try {
+      await onSubmit({
+        name,
+        birthYear: birthYear === '' ? null : Number(birthYear),
+        deathYear: deathYear === '' ? null : Number(deathYear),
+        biography: biography === '' ? null : biography,
+      })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="mb-10 flex flex-col gap-5 rounded border border-hair bg-card p-6">
+      <h3 className="font-serif text-lg text-ink">{author ? 'Editar Autor' : 'Novo Autor'}</h3>
+      <FormField label="Nome">
+        <input value={name} onChange={(e) => setName(e.target.value)}
+          className="w-full rounded border border-hair bg-card px-3 py-2.5 text-sm text-ink outline-none focus:border-ink-muted" />
+      </FormField>
+      <div className="grid grid-cols-2 gap-5">
+        <FormField label="Nascimento (opcional)">
+          <input value={birthYear} onChange={(e) => setBirthYear(e.target.value)} type="number"
+            className="w-full rounded border border-hair bg-card px-3 py-2.5 text-sm text-ink outline-none" />
+        </FormField>
+        <FormField label="Falecimento (opcional)">
+          <input value={deathYear} onChange={(e) => setDeathYear(e.target.value)} type="number"
+            className="w-full rounded border border-hair bg-card px-3 py-2.5 text-sm text-ink outline-none" />
+        </FormField>
+      </div>
+      <FormField label="Biografia (opcional)">
+        <textarea value={biography} onChange={(e) => setBiography(e.target.value)} rows={4}
+          className="w-full resize-y rounded border border-hair bg-card px-3 py-2.5 text-sm text-ink outline-none" />
+      </FormField>
+      <div className="flex gap-3">
+        <button onClick={submit} disabled={submitting}
+          className="rounded bg-ink px-6 py-2.5 text-sm font-medium text-paper transition-opacity hover:opacity-80 disabled:opacity-50">
+          {submitLabel}
+        </button>
+        {onCancel && (
+          <button onClick={onCancel}
+            className="rounded border border-hair px-6 py-2.5 text-sm text-ink-muted hover:text-ink">
+            Cancelar
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+```
+
+Note: the `AuthorPayload`, `CategoryPayload`, `TagPayload`, and `PhrasePayload`
+interfaces live in `types/models.ts` (added in Task 12) so forms and services
+share one definition. Import them from `../types/models` — never from a service module.
+
+- [ ] **Step 4: Create the reusable CategoryForm and TagForm**
+
+`frontend/src/components/admin/CategoryForm.tsx`:
+
+```tsx
+import { useState } from 'react'
+import FormField from './FormField'
+import type { Category, CategoryPayload } from '../../types/models'
+
+export default function CategoryForm({
+  category,
+  submitLabel,
+  onSubmit,
+  onCancel,
+}: {
+  category?: Category | null
+  submitLabel: string
+  onSubmit: (payload: CategoryPayload) => Promise<void>
+  onCancel: () => void
+}) {
+  const [name, setName] = useState(category?.name ?? '')
+  const [description, setDescription] = useState(category?.description ?? '')
+  const [submitting, setSubmitting] = useState(false)
+
+  const submit = async () => {
+    setSubmitting(true)
+    try {
+      await onSubmit({
+        name,
+        description: description === '' ? null : description,
+      })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="mb-10 flex flex-col gap-5 rounded border border-hair bg-card p-6">
+      <h3 className="font-serif text-lg text-ink">{category ? 'Editar Categoria' : 'Nova Categoria'}</h3>
+      <FormField label="Nome">
+        <input value={name} onChange={(e) => setName(e.target.value)}
+          className="w-full rounded border border-hair bg-card px-3 py-2.5 text-sm text-ink outline-none focus:border-ink-muted" />
+      </FormField>
+      <FormField label="Descrição (opcional)">
+        <input value={description} onChange={(e) => setDescription(e.target.value)}
+          className="w-full rounded border border-hair bg-card px-3 py-2.5 text-sm text-ink outline-none" />
+      </FormField>
+      <div className="flex gap-3">
+        <button onClick={submit} disabled={submitting}
+          className="rounded bg-ink px-6 py-2.5 text-sm font-medium text-paper transition-opacity hover:opacity-80 disabled:opacity-50">
+          {submitLabel}
+        </button>
+        {onCancel && (
+          <button onClick={onCancel}
+            className="rounded border border-hair px-6 py-2.5 text-sm text-ink-muted hover:text-ink">
+            Cancelar
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+```
+
+`frontend/src/components/admin/TagForm.tsx`:
+
+```tsx
+import { useState } from 'react'
+import FormField from './FormField'
+import type { Tag, TagPayload } from '../../types/models'
+
+export default function TagForm({
+  tag,
+  submitLabel,
+  onSubmit,
+  onCancel,
+}: {
+  tag?: Tag | null
+  submitLabel: string
+  onSubmit: (payload: TagPayload) => Promise<void>
+  onCancel: () => void
+}) {
+  const [name, setName] = useState(tag?.name ?? '')
+  const [submitting, setSubmitting] = useState(false)
+
+  const submit = async () => {
+    setSubmitting(true)
+    try {
+      await onSubmit({ name })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="mb-10 flex flex-col gap-5 rounded border border-hair bg-card p-6">
+      <h3 className="font-serif text-lg text-ink">{tag ? 'Editar Tag' : 'Nova Tag'}</h3>
+      <FormField label="Nome">
+        <input value={name} onChange={(e) => setName(e.target.value)}
+          className="w-full rounded border border-hair bg-card px-3 py-2.5 text-sm text-ink outline-none focus:border-ink-muted" />
+      </FormField>
+      <div className="flex gap-3">
+        <button onClick={submit} disabled={submitting}
+          className="rounded bg-ink px-6 py-2.5 text-sm font-medium text-paper transition-opacity hover:opacity-80 disabled:opacity-50">
+          {submitLabel}
+        </button>
+        {onCancel && (
+          <button onClick={onCancel}
+            className="rounded border border-hair px-6 py-2.5 text-sm text-ink-muted hover:text-ink">
+            Cancelar
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+```
+
+- [ ] **Step 5: Create the reusable PhraseForm**
+
+`frontend/src/components/admin/PhraseForm.tsx`:
+
+```tsx
+import { useState } from 'react'
+import FormField from './FormField'
+import type { Author, Category, Phrase, PhrasePayload, Tag } from '../../types/models'
+
+export default function PhraseForm({
+  phrase,
+  authors,
+  categories,
+  tags,
+  submitLabel,
+  onSubmit,
+  onCancel,
+}: {
+  phrase?: Phrase | null
+  authors: Author[]
+  categories: Category[]
+  tags: Tag[]
+  submitLabel: string
+  onSubmit: (payload: PhrasePayload) => Promise<void>
+  onCancel: () => void
+}) {
+  const [content, setContent] = useState(phrase?.content ?? '')
+  const [authorId, setAuthorId] = useState(phrase ? String(phrase.author.id) : '')
+  const [year, setYear] = useState(phrase?.year != null ? String(phrase.year) : '')
+  const [language, setLanguage] = useState(phrase?.language ?? 'pt')
+  const [source, setSource] = useState(phrase?.source ?? '')
+  const [categoryIds, setCategoryIds] = useState<number[]>(
+    phrase ? phrase.categories.map((c) => c.id) : [],
+  )
+  const [tagIds, setTagIds] = useState<number[]>(
+    phrase ? phrase.tags.map((t) => t.id) : [],
+  )
+  const [submitting, setSubmitting] = useState(false)
+
+  const toggle = (list: number[], value: number): number[] =>
+    list.includes(value) ? list.filter((v) => v !== value) : [...list, value]
+
+  const submit = async () => {
+    setSubmitting(true)
+    try {
+      await onSubmit({
+        content,
+        authorId: Number(authorId),
+        year: year === '' ? null : Number(year),
+        language,
+        source: source === '' ? null : source,
+        categoryIds,
+        tagIds,
+      })
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="mb-10 flex flex-col gap-5 rounded border border-hair bg-card p-6">
+      <h3 className="font-serif text-lg text-ink">{phrase ? 'Editar Frase' : 'Nova Frase'}</h3>
+      <FormField label="Conteúdo">
+        <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={4}
+          className="w-full resize-y rounded border border-hair bg-card px-3 py-2.5 font-serif italic leading-[1.6] text-ink outline-none focus:border-ink-muted" />
+      </FormField>
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+        <FormField label="Autor">
+          <select value={authorId} onChange={(e) => setAuthorId(e.target.value)}
+            className="w-full rounded border border-hair bg-card px-3 py-2.5 text-sm text-ink outline-none">
+            <option value="">Selecione…</option>
+            {authors.map((a) => (
+              <option key={a.id} value={a.id}>{a.name}</option>
+            ))}
+          </select>
+        </FormField>
+        <FormField label="Idioma">
+          <input value={language} onChange={(e) => setLanguage(e.target.value)}
+            className="w-full rounded border border-hair bg-card px-3 py-2.5 text-sm text-ink outline-none" />
+        </FormField>
+        <FormField label="Ano (opcional)">
+          <input value={year} onChange={(e) => setYear(e.target.value)} type="number"
+            className="w-full rounded border border-hair bg-card px-3 py-2.5 text-sm text-ink outline-none" />
+        </FormField>
+        <FormField label="Fonte (opcional)">
+          <input value={source} onChange={(e) => setSource(e.target.value)}
+            className="w-full rounded border border-hair bg-card px-3 py-2.5 text-sm text-ink outline-none" />
+        </FormField>
+      </div>
+      <FormField label="Categorias">
+        <div className="flex flex-wrap gap-2">
+          {categories.map((c) => (
+            <button key={c.id} type="button"
+              onClick={() => setCategoryIds((prev) => toggle(prev, c.id))}
+              className={`rounded-[99px] border px-3 py-1 text-xs transition-colors ${
+                categoryIds.includes(c.id) ? 'border-ink bg-ink text-paper' : 'border-hair text-ink-muted hover:text-ink'
+              }`}>
+              {c.name}
+            </button>
+          ))}
+        </div>
+      </FormField>
+      <FormField label="Tags">
+        <div className="flex flex-wrap gap-2">
+          {tags.map((t) => (
+            <button key={t.id} type="button"
+              onClick={() => setTagIds((prev) => toggle(prev, t.id))}
+              className={`rounded-[99px] border px-3 py-1 text-xs transition-colors ${
+                tagIds.includes(t.id) ? 'border-ink bg-ink text-paper' : 'border-hair text-ink-muted hover:text-ink'
+              }`}>
+              {t.name}
+            </button>
+          ))}
+        </div>
+      </FormField>
+      <div className="flex gap-3">
+        <button onClick={submit} disabled={submitting}
+          className="rounded bg-ink px-6 py-2.5 text-sm font-medium text-paper transition-opacity hover:opacity-80 disabled:opacity-50">
+          {submitLabel}
+        </button>
+        {onCancel && (
+          <button onClick={onCancel}
+            className="rounded border border-hair px-6 py-2.5 text-sm text-ink-muted hover:text-ink">
+            Cancelar
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+```
+
+- [ ] **Step 6: Create the Dashboard**
+
+`frontend/src/pages/admin/Dashboard.tsx`:
 
 ```tsx
 import { Link } from 'react-router-dom'
@@ -5961,7 +6615,6 @@ export default function Dashboard() {
   const authors = useAuthors(0, 1)
   const categories = useCategories(0, 1)
   const tags = useTags(0, 1)
-
   const recent = usePhrases({ page: 0, size: 5 })
 
   return (
@@ -5984,10 +6637,8 @@ export default function Dashboard() {
         </div>
         {recent.isLoading && <Loading />}
         {recent.data?.content.map((p, i) => (
-          <div
-            key={p.id}
-            className={`flex justify-between gap-4 px-5 py-3.5 ${i < (recent.data?.content.length ?? 1) - 1 ? 'border-b border-hair-subtle' : ''}`}
-          >
+          <div key={p.id}
+            className={`flex justify-between gap-4 px-5 py-3.5 ${i < (recent.data?.content.length ?? 1) - 1 ? 'border-b border-hair-subtle' : ''}`}>
             <p className="flex-1 truncate text-sm text-ink">“{p.content}”</p>
             <p className="shrink-0 text-[13px] text-ink-faint">{p.author.name}</p>
           </div>
@@ -5998,190 +6649,114 @@ export default function Dashboard() {
 }
 ```
 
-- [ ] **Step 4: Create AdminPhrases (list + form)**
+- [ ] **Step 7: Create AdminPhrases (create / list+view / update / delete)**
 
-`frontend/src/pages/admin/AdminPhrases.tsx` — table of phrases with edit/delete and an inline create form (author/category/tag selectors from hooks):
+`frontend/src/pages/admin/AdminPhrases.tsx` — a single `PhraseForm` handles create (no `phrase`) and edit (with `phrase`); rows link to the public detail (read/view):
 
 ```tsx
 import { useState } from 'react'
-import { usePhrases, useCreatePhrase, useDeletePhrase } from '../../hooks/usePhrases'
+import { Link } from 'react-router-dom'
+import { useCreatePhrase, useDeletePhrase, usePhrases, useUpdatePhrase } from '../../hooks/usePhrases'
 import { useAuthors } from '../../hooks/useAuthors'
 import { useCategories } from '../../hooks/useCategories'
 import { useTags } from '../../hooks/useTags'
 import ActionBar from '../../components/admin/ActionBar'
-import FormField from '../../components/admin/FormField'
+import EntityTable from '../../components/admin/EntityTable'
+import PhraseForm from '../../components/admin/PhraseForm'
 import Loading from '../../components/Loading'
-import { Link } from 'react-router-dom'
+import type { Phrase, PhrasePayload } from '../../types/models'
 
 export default function AdminPhrases() {
   const [page, setPage] = useState(0)
+  const [editing, setEditing] = useState<Phrase | null>(null)
+  const [message, setMessage] = useState('')
+
   const { data, isLoading } = usePhrases({ page, size: 10 })
   const createPhrase = useCreatePhrase()
   const deletePhrase = useDeletePhrase()
+  const updatePhrase = useUpdatePhrase(editing?.id ?? 0)
 
   const authors = useAuthors(0, 100)
   const categories = useCategories(0, 100)
   const tags = useTags(0, 100)
 
-  const [content, setContent] = useState('')
-  const [authorId, setAuthorId] = useState('')
-  const [year, setYear] = useState('')
-  const [language, setLanguage] = useState('pt')
-  const [source, setSource] = useState('')
-  const [categoryIds, setCategoryIds] = useState<number[]>([])
-  const [tagIds, setTagIds] = useState<number[]>([])
-  const [message, setMessage] = useState('')
+  const flash = (msg: string) => {
+    setMessage(msg)
+    window.setTimeout(() => setMessage(''), 3000)
+  }
 
-  const toggle = (list: number[], value: number): number[] =>
-    list.includes(value) ? list.filter((v) => v !== value) : [...list, value]
-
-  const submit = async () => {
-    setMessage('')
+  const handleSubmit = async (payload: PhrasePayload) => {
     try {
-      await createPhrase.mutateAsync({
-        content,
-        authorId: Number(authorId),
-        year: year === '' ? null : Number(year),
-        language,
-        source: source === '' ? null : source,
-        categoryIds,
-        tagIds,
-      })
-      setContent('')
-      setYear('')
-      setSource('')
-      setCategoryIds([])
-      setTagIds([])
-      setMessage('Frase salva com sucesso.')
-      window.setTimeout(() => setMessage(''), 3000)
+      if (editing) {
+        await updatePhrase.mutateAsync(payload)
+        flash('Frase atualizada com sucesso.')
+      } else {
+        await createPhrase.mutateAsync(payload)
+        flash('Frase salva com sucesso.')
+      }
+      setEditing(null)
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : 'Erro ao salvar.')
+      flash(err instanceof Error ? err.message : 'Erro ao salvar.')
+    }
+  }
+
+  const handleDelete = async (id: number) => {
+    if (window.confirm('Excluir esta frase?')) {
+      await deletePhrase.mutateAsync(id)
     }
   }
 
   return (
     <div className="max-w-[900px]">
-      <ActionBar title="Frases" />
+      <ActionBar
+        title="Frases"
+        action={
+          <button onClick={() => setEditing(null)}
+            className="rounded bg-ink px-4 py-2 text-[13px] font-medium text-paper transition-opacity hover:opacity-80">
+            + Nova Frase
+          </button>
+        }
+      />
 
       {message && (
-        <div className="mb-6 rounded border border-hair bg-card px-4 py-3 text-sm text-ink-muted">
-          {message}
-        </div>
+        <div className="mb-6 rounded border border-hair bg-card px-4 py-3 text-sm text-ink-muted">{message}</div>
       )}
 
-      <div className="mb-10 flex flex-col gap-5 rounded border border-hair bg-card p-6">
-        <h3 className="font-serif text-lg text-ink">Nova Frase</h3>
-        <FormField label="Conteúdo">
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            rows={4}
-            className="w-full resize-y rounded border border-hair bg-card px-3 py-2.5 font-serif italic leading-[1.6] text-ink outline-none focus:border-ink-muted"
-          />
-        </FormField>
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <FormField label="Autor">
-            <select value={authorId} onChange={(e) => setAuthorId(e.target.value)}
-              className="w-full rounded border border-hair bg-card px-3 py-2.5 text-sm text-ink outline-none">
-              <option value="">Selecione…</option>
-              {authors.data?.content.map((a) => (
-                <option key={a.id} value={a.id}>{a.name}</option>
-              ))}
-            </select>
-          </FormField>
-          <FormField label="Idioma">
-            <input value={language} onChange={(e) => setLanguage(e.target.value)}
-              className="w-full rounded border border-hair bg-card px-3 py-2.5 text-sm text-ink outline-none" />
-          </FormField>
-          <FormField label="Ano (opcional)">
-            <input value={year} onChange={(e) => setYear(e.target.value)} type="number"
-              className="w-full rounded border border-hair bg-card px-3 py-2.5 text-sm text-ink outline-none" />
-          </FormField>
-          <FormField label="Fonte (opcional)">
-            <input value={source} onChange={(e) => setSource(e.target.value)}
-              className="w-full rounded border border-hair bg-card px-3 py-2.5 text-sm text-ink outline-none" />
-          </FormField>
-        </div>
-        <FormField label="Categorias">
-          <div className="flex flex-wrap gap-2">
-            {categories.data?.content.map((c) => (
-              <button
-                key={c.id}
-                onClick={() => setCategoryIds((prev) => toggle(prev, c.id))}
-                className={`rounded-[99px] border px-3 py-1 text-xs transition-colors ${
-                  categoryIds.includes(c.id) ? 'border-ink bg-ink text-paper' : 'border-hair text-ink-muted hover:text-ink'
-                }`}
-              >
-                {c.name}
-              </button>
-            ))}
-          </div>
-        </FormField>
-        <FormField label="Tags">
-          <div className="flex flex-wrap gap-2">
-            {tags.data?.content.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTagIds((prev) => toggle(prev, t.id))}
-                className={`rounded-[99px] border px-3 py-1 text-xs transition-colors ${
-                  tagIds.includes(t.id) ? 'border-ink bg-ink text-paper' : 'border-hair text-ink-muted hover:text-ink'
-                }`}
-              >
-                {t.name}
-              </button>
-            ))}
-          </div>
-        </FormField>
-        <button
-          onClick={submit}
-          disabled={createPhrase.isPending}
-          className="self-start rounded bg-ink px-6 py-2.5 text-sm font-medium text-paper transition-opacity hover:opacity-80 disabled:opacity-50"
-        >
-          Salvar Frase
-        </button>
-      </div>
+      <PhraseForm
+        key={editing?.id ?? 'new'}
+        phrase={editing}
+        authors={authors.data?.content ?? []}
+        categories={categories.data?.content ?? []}
+        tags={tags.data?.content ?? []}
+        submitLabel={editing ? 'Atualizar Frase' : 'Salvar Frase'}
+        onSubmit={handleSubmit}
+        onCancel={() => setEditing(null)}
+      />
 
       {isLoading && <Loading />}
 
-      <div className="overflow-hidden rounded border border-hair">
-        <div className="grid grid-cols-[1fr_140px_90px] gap-4 border-b border-hair-subtle px-4 py-2.5">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint">Conteúdo</span>
-          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint">Autor</span>
-          <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink-faint" />
-        </div>
+      <EntityTable>
         {data?.content.map((p, i) => (
-          <div
-            key={p.id}
-            className={`grid grid-cols-[1fr_140px_90px] items-center gap-4 px-4 py-3.5 transition-colors hover:bg-card ${
-              i < (data?.content.length ?? 1) - 1 ? 'border-b border-hair-subtle' : ''
-            }`}
-          >
-            <p className="truncate text-sm text-ink">“{p.content}”</p>
-            <p className="text-[13px] text-ink-muted">{p.author.name}</p>
-            <div className="flex gap-2 text-xs">
+          <div key={p.id}
+            className={`flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-card ${i < (data?.content.length ?? 1) - 1 ? 'border-b border-hair-subtle' : ''}`}>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm text-ink">“{p.content}”</p>
+              <p className="text-[13px] text-ink-faint">{p.author.name} · {p.language.toUpperCase()}</p>
+            </div>
+            <div className="flex shrink-0 gap-3 text-xs">
               <Link to={`/frases/${p.id}`} className="text-ink-muted hover:text-ink">Ver</Link>
-              <button
-                onClick={() => {
-                  if (window.confirm('Excluir esta frase?')) deletePhrase.mutate(p.id)
-                }}
-                className="text-ink-faint hover:text-ink"
-              >
-                Excluir
-              </button>
+              <button onClick={() => setEditing(p)} className="text-ink-muted hover:text-ink">Editar</button>
+              <button onClick={() => handleDelete(p.id)} className="text-ink-faint hover:text-ink">Excluir</button>
             </div>
           </div>
         ))}
-      </div>
+      </EntityTable>
 
       {data && data.totalPages > 1 && (
         <div className="mt-6 flex justify-center gap-4 text-[13px]">
-          <button disabled={page === 0} onClick={() => setPage(page - 1)} className="text-ink-muted disabled:opacity-40">
-            ← Anterior
-          </button>
+          <button disabled={page === 0} onClick={() => setPage(page - 1)} className="text-ink-muted disabled:opacity-40">← Anterior</button>
           <span className="text-ink-faint">{page + 1} / {data.totalPages}</span>
-          <button disabled={page >= data.totalPages - 1} onClick={() => setPage(page + 1)} className="text-ink-muted disabled:opacity-40">
-            Próxima →
-          </button>
+          <button disabled={page >= data.totalPages - 1} onClick={() => setPage(page + 1)} className="text-ink-muted disabled:opacity-40">Próxima →</button>
         </div>
       )}
     </div>
@@ -6189,242 +6764,256 @@ export default function AdminPhrases() {
 }
 ```
 
-- [ ] **Step 5: Create AdminAuthors**
+- [ ] **Step 8: Create AdminAuthors (full CRUD)**
 
 `frontend/src/pages/admin/AdminAuthors.tsx`:
 
 ```tsx
 import { useState } from 'react'
-import { useAuthors, useCreateAuthor, useDeleteAuthor } from '../../hooks/useAuthors'
+import { Link } from 'react-router-dom'
+import { useAuthors, useCreateAuthor, useDeleteAuthor, useUpdateAuthor } from '../../hooks/useAuthors'
 import ActionBar from '../../components/admin/ActionBar'
-import FormField from '../../components/admin/FormField'
+import EntityTable from '../../components/admin/EntityTable'
+import AuthorForm from '../../components/admin/AuthorForm'
 import Loading from '../../components/Loading'
+import type { Author, AuthorPayload } from '../../types/models'
 
 export default function AdminAuthors() {
   const { data, isLoading } = useAuthors(0, 100)
   const createAuthor = useCreateAuthor()
   const deleteAuthor = useDeleteAuthor()
 
-  const [name, setName] = useState('')
-  const [birthYear, setBirthYear] = useState('')
-  const [deathYear, setDeathYear] = useState('')
-  const [biography, setBiography] = useState('')
+  const [editing, setEditing] = useState<Author | null>(null)
   const [message, setMessage] = useState('')
 
-  const submit = async () => {
-    setMessage('')
+  const flash = (msg: string) => {
+    setMessage(msg)
+    window.setTimeout(() => setMessage(''), 3000)
+  }
+
+  const updateAuthor = useUpdateAuthor(editing?.id ?? 0)
+
+  const handleSubmit = async (payload: AuthorPayload) => {
     try {
-      await createAuthor.mutateAsync({
-        name,
-        birthYear: birthYear === '' ? null : Number(birthYear),
-        deathYear: deathYear === '' ? null : Number(deathYear),
-        biography: biography === '' ? null : biography,
-      })
-      setName('')
-      setBirthYear('')
-      setDeathYear('')
-      setBiography('')
-      setMessage('Autor salvo com sucesso.')
-      window.setTimeout(() => setMessage(''), 3000)
+      if (editing) {
+        await updateAuthor.mutateAsync(payload)
+        flash('Autor atualizado com sucesso.')
+      } else {
+        await createAuthor.mutateAsync(payload)
+        flash('Autor salvo com sucesso.')
+      }
+      setEditing(null)
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : 'Erro ao salvar.')
+      flash(err instanceof Error ? err.message : 'Erro ao salvar.')
     }
   }
 
   return (
     <div className="max-w-[900px]">
-      <ActionBar title="Autores" />
+      <ActionBar
+        title="Autores"
+        action={
+          <button onClick={() => setEditing(null)}
+            className="rounded bg-ink px-4 py-2 text-[13px] font-medium text-paper transition-opacity hover:opacity-80">
+            + Novo Autor
+          </button>
+        }
+      />
+
       {message && <div className="mb-6 rounded border border-hair bg-card px-4 py-3 text-sm text-ink-muted">{message}</div>}
 
-      <div className="mb-10 flex flex-col gap-5 rounded border border-hair bg-card p-6">
-        <h3 className="font-serif text-lg text-ink">Novo Autor</h3>
-        <FormField label="Nome">
-          <input value={name} onChange={(e) => setName(e.target.value)}
-            className="w-full rounded border border-hair bg-card px-3 py-2.5 text-sm text-ink outline-none focus:border-ink-muted" />
-        </FormField>
-        <div className="grid grid-cols-2 gap-5">
-          <FormField label="Nascimento (opcional)">
-            <input value={birthYear} onChange={(e) => setBirthYear(e.target.value)} type="number"
-              className="w-full rounded border border-hair bg-card px-3 py-2.5 text-sm text-ink outline-none" />
-          </FormField>
-          <FormField label="Falecimento (opcional)">
-            <input value={deathYear} onChange={(e) => setDeathYear(e.target.value)} type="number"
-              className="w-full rounded border border-hair bg-card px-3 py-2.5 text-sm text-ink outline-none" />
-          </FormField>
-        </div>
-        <FormField label="Biografia (opcional)">
-          <textarea value={biography} onChange={(e) => setBiography(e.target.value)} rows={4}
-            className="w-full resize-y rounded border border-hair bg-card px-3 py-2.5 text-sm text-ink outline-none" />
-        </FormField>
-        <button onClick={submit} disabled={createAuthor.isPending}
-          className="self-start rounded bg-ink px-6 py-2.5 text-sm font-medium text-paper transition-opacity hover:opacity-80 disabled:opacity-50">
-          Salvar Autor
-        </button>
-      </div>
+      <AuthorForm
+        key={editing?.id ?? 'new'}
+        author={editing}
+        submitLabel={editing ? 'Atualizar Autor' : 'Salvar Autor'}
+        onSubmit={handleSubmit}
+        onCancel={() => setEditing(null)}
+      />
 
       {isLoading && <Loading />}
-      <div className="overflow-hidden rounded border border-hair">
+
+      <EntityTable>
         {data?.content.map((a, i) => (
           <div key={a.id}
-            className={`flex items-center justify-between px-5 py-4 transition-colors hover:bg-card ${i < (data?.content.length ?? 1) - 1 ? 'border-b border-hair-subtle' : ''}`}>
+            className={`flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-card ${i < (data?.content.length ?? 1) - 1 ? 'border-b border-hair-subtle' : ''}`}>
             <div>
               <p className="text-[15px] font-medium text-ink">{a.name}</p>
               <p className="text-[13px] text-ink-faint">{a.phraseCount} {a.phraseCount === 1 ? 'frase' : 'frases'}</p>
             </div>
-            <button
-              onClick={() => {
-                if (window.confirm('Excluir este autor?')) deleteAuthor.mutate(a.id)
-              }}
-              className="text-xs text-ink-faint hover:text-ink"
-            >
-              Excluir
-            </button>
+            <div className="flex shrink-0 gap-3 text-xs">
+              <Link to={`/autores/${a.id}`} className="text-ink-muted hover:text-ink">Ver</Link>
+              <button onClick={() => setEditing(a)} className="text-ink-muted hover:text-ink">Editar</button>
+              <button onClick={() => { if (window.confirm('Excluir este autor?')) deleteAuthor.mutate(a.id) }} className="text-ink-faint hover:text-ink">Excluir</button>
+            </div>
           </div>
         ))}
-      </div>
+      </EntityTable>
     </div>
   )
 }
 ```
 
-- [ ] **Step 6: Create AdminCategories and AdminTags**
+- [ ] **Step 9: Create AdminCategories (full CRUD)**
 
 `frontend/src/pages/admin/AdminCategories.tsx`:
 
 ```tsx
 import { useState } from 'react'
-import { useCategories, useCreateCategory, useDeleteCategory } from '../../hooks/useCategories'
+import { Link } from 'react-router-dom'
+import { useCategories, useCreateCategory, useDeleteCategory, useUpdateCategory } from '../../hooks/useCategories'
 import ActionBar from '../../components/admin/ActionBar'
-import FormField from '../../components/admin/FormField'
+import EntityTable from '../../components/admin/EntityTable'
+import CategoryForm from '../../components/admin/CategoryForm'
 import Loading from '../../components/Loading'
+import type { Category, CategoryPayload } from '../../types/models'
 
 export default function AdminCategories() {
   const { data, isLoading } = useCategories(0, 100)
   const createCategory = useCreateCategory()
   const deleteCategory = useDeleteCategory()
 
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
+  const [editing, setEditing] = useState<Category | null>(null)
   const [message, setMessage] = useState('')
 
-  const submit = async () => {
-    setMessage('')
+  const flash = (msg: string) => {
+    setMessage(msg)
+    window.setTimeout(() => setMessage(''), 3000)
+  }
+
+  const updateCategory = useUpdateCategory(editing?.id ?? 0)
+
+  const handleSubmit = async (payload: CategoryPayload) => {
     try {
-      await createCategory.mutateAsync({ name, description: description === '' ? null : description })
-      setName('')
-      setDescription('')
-      setMessage('Categoria salva com sucesso.')
-      window.setTimeout(() => setMessage(''), 3000)
+      if (editing) {
+        await updateCategory.mutateAsync(payload)
+        flash('Categoria atualizada com sucesso.')
+      } else {
+        await createCategory.mutateAsync(payload)
+        flash('Categoria salva com sucesso.')
+      }
+      setEditing(null)
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : 'Erro ao salvar.')
+      flash(err instanceof Error ? err.message : 'Erro ao salvar.')
     }
   }
 
   return (
     <div className="max-w-[900px]">
-      <ActionBar title="Categorias" />
+      <ActionBar
+        title="Categorias"
+        action={
+          <button onClick={() => setEditing(null)}
+            className="rounded bg-ink px-4 py-2 text-[13px] font-medium text-paper transition-opacity hover:opacity-80">
+            + Nova Categoria
+          </button>
+        }
+      />
+
       {message && <div className="mb-6 rounded border border-hair bg-card px-4 py-3 text-sm text-ink-muted">{message}</div>}
 
-      <div className="mb-10 flex flex-col gap-5 rounded border border-hair bg-card p-6">
-        <h3 className="font-serif text-lg text-ink">Nova Categoria</h3>
-        <FormField label="Nome">
-          <input value={name} onChange={(e) => setName(e.target.value)}
-            className="w-full rounded border border-hair bg-card px-3 py-2.5 text-sm text-ink outline-none focus:border-ink-muted" />
-        </FormField>
-        <FormField label="Descrição (opcional)">
-          <input value={description} onChange={(e) => setDescription(e.target.value)}
-            className="w-full rounded border border-hair bg-card px-3 py-2.5 text-sm text-ink outline-none" />
-        </FormField>
-        <button onClick={submit} disabled={createCategory.isPending}
-          className="self-start rounded bg-ink px-6 py-2.5 text-sm font-medium text-paper transition-opacity hover:opacity-80 disabled:opacity-50">
-          Salvar Categoria
-        </button>
-      </div>
+      <CategoryForm
+        key={editing?.id ?? 'new'}
+        category={editing}
+        submitLabel={editing ? 'Atualizar Categoria' : 'Salvar Categoria'}
+        onSubmit={handleSubmit}
+        onCancel={() => setEditing(null)}
+      />
 
       {isLoading && <Loading />}
-      <div className="overflow-hidden rounded border border-hair">
+
+      <EntityTable>
         {data?.content.map((c, i) => (
           <div key={c.id}
-            className={`flex items-center justify-between px-5 py-4 transition-colors hover:bg-card ${i < (data?.content.length ?? 1) - 1 ? 'border-b border-hair-subtle' : ''}`}>
+            className={`flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-card ${i < (data?.content.length ?? 1) - 1 ? 'border-b border-hair-subtle' : ''}`}>
             <div>
               <p className="text-[15px] text-ink">{c.name}</p>
               <p className="text-[13px] text-ink-faint">{c.phraseCount} {c.phraseCount === 1 ? 'frase' : 'frases'}</p>
             </div>
-            <button
-              onClick={() => {
-                if (window.confirm('Excluir esta categoria?')) deleteCategory.mutate(c.id)
-              }}
-              className="text-xs text-ink-faint hover:text-ink"
-            >
-              Excluir
-            </button>
+            <div className="flex shrink-0 gap-3 text-xs">
+              <Link to={`/categorias/${c.id}`} className="text-ink-muted hover:text-ink">Ver</Link>
+              <button onClick={() => setEditing(c)} className="text-ink-muted hover:text-ink">Editar</button>
+              <button onClick={() => { if (window.confirm('Excluir esta categoria?')) deleteCategory.mutate(c.id) }} className="text-ink-faint hover:text-ink">Excluir</button>
+            </div>
           </div>
         ))}
-      </div>
+      </EntityTable>
     </div>
   )
 }
 ```
 
+- [ ] **Step 10: Create AdminTags (full CRUD)**
+
 `frontend/src/pages/admin/AdminTags.tsx`:
 
 ```tsx
 import { useState } from 'react'
-import { useTags, useCreateTag, useDeleteTag } from '../../hooks/useTags'
+import { useTags, useCreateTag, useDeleteTag, useUpdateTag } from '../../hooks/useTags'
 import ActionBar from '../../components/admin/ActionBar'
-import FormField from '../../components/admin/FormField'
+import TagForm from '../../components/admin/TagForm'
 import Loading from '../../components/Loading'
+import type { Tag, TagPayload } from '../../types/models'
 
 export default function AdminTags() {
   const { data, isLoading } = useTags(0, 100)
   const createTag = useCreateTag()
   const deleteTag = useDeleteTag()
 
-  const [name, setName] = useState('')
+  const [editing, setEditing] = useState<Tag | null>(null)
   const [message, setMessage] = useState('')
 
-  const submit = async () => {
-    setMessage('')
+  const flash = (msg: string) => {
+    setMessage(msg)
+    window.setTimeout(() => setMessage(''), 3000)
+  }
+
+  const updateTag = useUpdateTag(editing?.id ?? 0)
+
+  const handleSubmit = async (payload: TagPayload) => {
     try {
-      await createTag.mutateAsync({ name })
-      setName('')
-      setMessage('Tag salva com sucesso.')
-      window.setTimeout(() => setMessage(''), 3000)
+      if (editing) {
+        await updateTag.mutateAsync(payload)
+        flash('Tag atualizada com sucesso.')
+      } else {
+        await createTag.mutateAsync(payload)
+        flash('Tag salva com sucesso.')
+      }
+      setEditing(null)
     } catch (err) {
-      setMessage(err instanceof Error ? err.message : 'Erro ao salvar.')
+      flash(err instanceof Error ? err.message : 'Erro ao salvar.')
     }
   }
 
   return (
     <div className="max-w-[900px]">
-      <ActionBar title="Tags" />
+      <ActionBar
+        title="Tags"
+        action={
+          <button onClick={() => setEditing(null)}
+            className="rounded bg-ink px-4 py-2 text-[13px] font-medium text-paper transition-opacity hover:opacity-80">
+            + Nova Tag
+          </button>
+        }
+      />
+
       {message && <div className="mb-6 rounded border border-hair bg-card px-4 py-3 text-sm text-ink-muted">{message}</div>}
 
-      <div className="mb-10 flex flex-col gap-5 rounded border border-hair bg-card p-6">
-        <h3 className="font-serif text-lg text-ink">Nova Tag</h3>
-        <FormField label="Nome">
-          <input value={name} onChange={(e) => setName(e.target.value)}
-            className="w-full rounded border border-hair bg-card px-3 py-2.5 text-sm text-ink outline-none focus:border-ink-muted" />
-        </FormField>
-        <button onClick={submit} disabled={createTag.isPending}
-          className="self-start rounded bg-ink px-6 py-2.5 text-sm font-medium text-paper transition-opacity hover:opacity-80 disabled:opacity-50">
-          Salvar Tag
-        </button>
-      </div>
+      <TagForm
+        key={editing?.id ?? 'new'}
+        tag={editing}
+        submitLabel={editing ? 'Atualizar Tag' : 'Salvar Tag'}
+        onSubmit={handleSubmit}
+        onCancel={() => setEditing(null)}
+      />
 
       {isLoading && <Loading />}
+
       <div className="flex flex-wrap gap-2">
         {data?.content.map((t) => (
           <div key={t.id} className="flex items-center gap-2 rounded-[99px] border border-hair px-3 py-1.5">
-            <span className="text-[13px] text-ink-muted">{t.name}</span>
-            <button
-              onClick={() => {
-                if (window.confirm('Excluir esta tag?')) deleteTag.mutate(t.id)
-              }}
-              className="text-xs text-ink-faint hover:text-ink"
-            >
-              ×
-            </button>
+            <button onClick={() => setEditing(t)} className="text-[13px] text-ink-muted hover:text-ink">{t.name}</button>
+            <button onClick={() => { if (window.confirm('Excluir esta tag?')) deleteTag.mutate(t.id) }}
+              className="text-xs text-ink-faint hover:text-ink">×</button>
           </div>
         ))}
       </div>
@@ -6433,7 +7022,7 @@ export default function AdminTags() {
 }
 ```
 
-- [ ] **Step 7: Register admin routes**
+- [ ] **Step 11: Register admin routes**
 
 `frontend/src/App.tsx` — full router:
 
@@ -6482,17 +7071,21 @@ export const router = createBrowserRouter([
 ])
 ```
 
-- [ ] **Step 8: Verify build + lint, then commit**
+- [ ] **Step 12: Verify build + lint, then commit**
 
 Run: `cd frontend && npm run build && npm run lint`
 Expected: pass.
 
 ```bash
-git add frontend/src/layouts/AdminLayout.tsx frontend/src/components/admin/ frontend/src/pages/admin/ frontend/src/App.tsx
-git commit -m "feat(frontend): add admin area with dashboard and CRUD pages"
+git add frontend/src/layouts/AdminLayout.tsx frontend/src/components/admin/ frontend/src/pages/admin/ frontend/src/App.tsx frontend/src/types/models.ts frontend/src/services/
+git commit -m "feat(frontend): add full CRUD admin area with reusable forms"
 ```
 
----
+### Educational summary
+
+- **Frontend/React concepts:** full CRUD with a single reusable form per resource (create vs edit driven by an `editing` state); Rules of Hooks respected by binding update hooks at the top level.
+- **Architectural decision:** create and edit share one form; read/view links to the public detail pages; delete confirms inline.
+- **Study before proceeding:** controlled form state, mutation error handling, `key` remount to reset forms.
 
 ## Task 22: Docker Compose full stack + backend Dockerfile
 
@@ -6609,6 +7202,12 @@ Expected: green (H2-based tests unaffected by Docker).
 git add docker-compose.yml backend/phraseforge-api/Dockerfile backend/phraseforge-api/.dockerignore
 git commit -m "feat(infra): add backend Dockerfile and full docker-compose with MySQL healthcheck"
 ```
+
+### Educational summary
+
+- **Java/Spring/Docker concepts:** multi-stage Dockerfile (Maven build → JRE runtime); compose `depends_on: condition: service_healthy` removes the need for `sleep`; Flyway applies V1–V7 on MySQL.
+- **Architectural decision:** the healthcheck gate is the only ordering mechanism.
+- **Study before proceeding:** Docker multi-stage builds, healthcheck semantics.
 
 ---
 
@@ -6770,10 +7369,11 @@ Respostas de erro consistentes: `{ "status", "message", "timestamp" }`.
 
 ## Limitações do MVP (deliberadas)
 
-- **Ano das frases:** o campo `year` é `SMALLINT` numérico. O MVP não modela
-  eras (a.C./d.C.) nem datas aproximadas ("c. 170 d.C."). Anos incertos não
-  são preenchidos, e números não devem ser lidos como precisão histórica
-  quando a fonte é incerta.
+- **Ano das frases:** o campo `phrases.year` (`SMALLINT`) representa o ano
+  associado à frase/fonte — **não necessariamente a data exata em que a frase
+  foi dita ou escrita**. O MVP não modela eras (a.C./d.C.) nem datas
+  aproximadas ("c. 170 d.C."). Anos incertos não são preenchidos, e números
+  não devem ser lidos como precisão histórica quando a fonte é incerta.
 - **Sem autenticação:** a área administrativa é aberta (controle de acesso é
   escopo da V1).
 - **Busca:** filtros via query string (contém), sem busca full-text do MySQL.
@@ -6828,10 +7428,21 @@ git commit -m "docs: add project README with run instructions and roadmap"
 
 ---
 
+### Educational summary
+
+- **Documentation concepts:** README covers run instructions, env vars, API surface, architecture, and the deliberate year-model limitation.
+- **Architectural decision:** the prototype is documented as the visual source of truth; schema vs prototype conflicts are resolved in favor of the schema with explicit notes.
+- **Study before proceeding:** nothing — this closes the MVP loop.
+
 ## Self-Review Notes
 
 - **Spec coverage:** every spec section maps to a task — migrations (Task 2), entities/repos (Tasks 3–8), services/DTOs/validation/exceptions (Tasks 5–10), controllers (Tasks 5/6/7/9), tests (Tasks 4–10), OpenAPI (Task 10), frontend structure (12–15), pages (16–20), admin (21), docker (11/22), README (23).
 - **Flyway sequence:** V1–V6 schema + V7 seed, exactly as the user required (no arbitrary V8).
-- **Year model:** SMALLINT numeric, years with uncertain dating NULL in seed; documented in README + spec.
+- **H2 test isolation:** tests run V1–V6 only (`spring.flyway.target=6` in test properties); V7 seed excluded from the H2 context. Repository/integration tests build their own fixtures with neutral names and never depend on seeded data. MySQL runtime/dev applies V1–V7.
+- **Admin CRUD (correction applied):** full CRUD for Phrases, Authors, Categories, Tags — create, read/view (links to public detail pages), update (reusable form with `editing` state), and delete. One form component per resource reused for create and edit; payload types shared from `types/models.ts`.
+- **Phrase duplicate on update (correction applied):** `PhraseService.update` uses the derived `existsByContentAndAuthor_IdAndIdNot(content, authorId, id)` repository query — no in-memory filtering of all phrases.
+- **Phrase filter coverage (correction applied):** `PhraseSpecificationsTest` covers `query`, `authorId`, `categoryId`, `tagId`, `language`, combinations, and asserts pagination returns no duplicate phrases when filtering by category/tag (multi-join fixture).
+- **Year model:** SMALLINT numeric; `phrases.year` is the year associated with the phrase/source, not necessarily when it was spoken/written; uncertain dates are NULL; BCE/CE not modeled. Documented in README + spec.
 - **Type consistency:** `PagedResponse<T>` used everywhere; `Paged<T>` mirrors it on the frontend; `PhraseSummaryResponse` shape == `PhraseSummary` alias; `AuthorRef/CategoryRef/TagRef` identical names across TS/Java.
-- **Known deliberate simplifications:** `ensureNotDuplicateExcluding` uses an unpaged `findAll` (fine at MVP scale); `PhraseSummary` aliased to `Phrase`; Admin edit uses create-only forms (MVP scope); Home random re-fetch via `removeQueries` + `refetch`.
+- **Educational workflow:** each of the 23 tasks ends with an `### Educational summary` block (implemented, concepts, decisions, tests, study topics); the Global Constraints mandate the summary after every completed task.
+- **Known deliberate simplifications:** `PhraseSummary` aliased to `Phrase`; Home random re-fetch via `removeQueries` + `refetch`; author search client-side over the loaded page (server-side search is a V2 option).
