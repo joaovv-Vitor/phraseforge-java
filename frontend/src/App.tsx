@@ -5,6 +5,8 @@ import Explore from './pages/Explore'
 import QuoteDetail from './pages/QuoteDetail'
 import Authors from './pages/Authors'
 import AuthorDetail from './pages/AuthorDetail'
+import Categories from './pages/Categories'
+import CategoryDetail from './pages/CategoryDetail'
 
 export const router = createBrowserRouter([
   {
@@ -16,6 +18,8 @@ export const router = createBrowserRouter([
       { path: 'frases/:id', element: <QuoteDetail /> },
       { path: 'autores', element: <Authors /> },
       { path: 'autores/:id', element: <AuthorDetail /> },
+      { path: 'categorias', element: <Categories /> },
+      { path: 'categorias/:id', element: <CategoryDetail /> },
     ],
   },
 ])
