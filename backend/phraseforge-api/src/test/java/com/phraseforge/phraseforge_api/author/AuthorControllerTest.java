@@ -32,6 +32,9 @@ class AuthorControllerTest {
     private AuthorService authorService;
 
     @MockitoBean
+    private com.phraseforge.phraseforge_api.phrase.PhraseService phraseService;
+
+    @MockitoBean
     private JpaMetamodelMappingContext jpaMetamodelMappingContext;
 
     @Test

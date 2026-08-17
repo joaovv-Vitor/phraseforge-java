@@ -32,6 +32,9 @@ class CategoryControllerTest {
     private CategoryService categoryService;
 
     @MockitoBean
+    private com.phraseforge.phraseforge_api.phrase.PhraseService phraseService;
+
+    @MockitoBean
     private JpaMetamodelMappingContext jpaMetamodelMappingContext;
 
     @Test
