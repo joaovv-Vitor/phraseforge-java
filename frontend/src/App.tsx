@@ -1,6 +1,7 @@
 import { createBrowserRouter } from 'react-router-dom'
 import PublicLayout from './layouts/PublicLayout'
 import Home from './pages/Home'
+import Explore from './pages/Explore'
 
 export const router = createBrowserRouter([
   {
@@ -8,7 +9,7 @@ export const router = createBrowserRouter([
     element: <PublicLayout />,
     children: [
       { index: true, element: <Home /> },
-      { path: 'explore', element: <div>Explore</div> },
+      { path: 'explore', element: <Explore /> },
     ],
   },
 ])
