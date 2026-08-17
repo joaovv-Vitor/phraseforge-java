@@ -1,5 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom'
 import PublicLayout from './layouts/PublicLayout'
+import AdminLayout from './layouts/AdminLayout'
 import Home from './pages/Home'
 import Explore from './pages/Explore'
 import QuoteDetail from './pages/QuoteDetail'
@@ -7,6 +8,11 @@ import Authors from './pages/Authors'
 import AuthorDetail from './pages/AuthorDetail'
 import Categories from './pages/Categories'
 import CategoryDetail from './pages/CategoryDetail'
+import Dashboard from './pages/admin/Dashboard'
+import AdminPhrases from './pages/admin/AdminPhrases'
+import AdminAuthors from './pages/admin/AdminAuthors'
+import AdminCategories from './pages/admin/AdminCategories'
+import AdminTags from './pages/admin/AdminTags'
 
 export const router = createBrowserRouter([
   {
@@ -20,6 +26,17 @@ export const router = createBrowserRouter([
       { path: 'autores/:id', element: <AuthorDetail /> },
       { path: 'categorias', element: <Categories /> },
       { path: 'categorias/:id', element: <CategoryDetail /> },
+    ],
+  },
+  {
+    path: '/admin',
+    element: <AdminLayout />,
+    children: [
+      { index: true, element: <Dashboard /> },
+      { path: 'frases', element: <AdminPhrases /> },
+      { path: 'autores', element: <AdminAuthors /> },
+      { path: 'categorias', element: <AdminCategories /> },
+      { path: 'tags', element: <AdminTags /> },
     ],
   },
 ])
