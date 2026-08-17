@@ -13,6 +13,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -61,5 +62,15 @@ class AuthorControllerTest {
                         .content(body))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.name", is("Test Author")));
+    }
+
+    @Test
+    void phrasesByMissingAuthor_returnsNotFound() throws Exception {
+        doThrow(new com.phraseforge.phraseforge_api.exception.ResourceNotFoundException("Author not found: 99"))
+                .when(authorService).ensureExists(99L);
+
+        mockMvc.perform(get("/api/v1/authors/99/phrases"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status", is(404)));
     }
 }

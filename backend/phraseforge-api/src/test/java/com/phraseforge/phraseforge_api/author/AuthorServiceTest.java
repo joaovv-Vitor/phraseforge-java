@@ -68,4 +68,12 @@ class AuthorServiceTest {
         assertThatThrownBy(() -> authorService.update(99L, request))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
+
+    @Test
+    void ensureExists_missingAuthor_throwsNotFound() {
+        when(authorRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> authorService.ensureExists(99L))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
 }

@@ -40,6 +40,7 @@ public class AuthorController {
     @GetMapping("/{id}/phrases")
     public PagedResponse<PhraseSummaryResponse> phrasesByAuthor(
             @PathVariable Long id, Pageable pageable) {
+        authorService.ensureExists(id);
         return phraseService.list(null, id, null, null, null, pageable);
     }
 

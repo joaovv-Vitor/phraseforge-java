@@ -63,4 +63,12 @@ class CategoryServiceTest {
         assertThatThrownBy(() -> categoryService.delete(99L))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
+
+    @Test
+    void ensureExists_missingCategory_throwsNotFound() {
+        when(categoryRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> categoryService.ensureExists(99L))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
 }

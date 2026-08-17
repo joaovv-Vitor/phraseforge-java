@@ -42,6 +42,11 @@ public class AuthorService {
         return authorMapper.toResponse(author, phraseCountFor(id));
     }
 
+    @Transactional(readOnly = true)
+    public void ensureExists(Long id) {
+        findByIdOrThrow(id);
+    }
+
     @Transactional
     public AuthorResponse create(CreateAuthorRequest request) {
         ensureNameAvailable(request.name());

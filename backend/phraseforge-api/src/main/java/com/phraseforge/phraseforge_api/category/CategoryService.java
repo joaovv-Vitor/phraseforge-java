@@ -46,6 +46,11 @@ public class CategoryService {
         return categoryMapper.toResponse(category, phraseCountFor(id));
     }
 
+    @Transactional(readOnly = true)
+    public void ensureExists(Long id) {
+        findByIdOrThrow(id);
+    }
+
     @Transactional
     public CategoryResponse create(CreateCategoryRequest request) {
         ensureNameAvailable(request.name());
