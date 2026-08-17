@@ -1,20 +1,23 @@
 package com.phraseforge.phraseforge_api.phrase;
 
 import com.phraseforge.phraseforge_api.author.Author;
+import com.phraseforge.phraseforge_api.category.Category;
 import com.phraseforge.phraseforge_api.common.AuditableEntity;
+import com.phraseforge.phraseforge_api.tag.Tag;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-/**
- * Temporary minimal Phrase so Author (Task 4) can compile and be validated
- * against the phrases table. Replaced by the full Phrase entity in Task 8.
- */
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Table(name = "phrases")
 public class Phrase extends AuditableEntity {
@@ -36,6 +39,12 @@ public class Phrase extends AuditableEntity {
     @Column(name = "source", length = 300)
     private String source;
 
+    @OneToMany(mappedBy = "phrase", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<PhraseCategory> phraseCategories = new ArrayList<>();
+
+    @OneToMany(mappedBy = "phrase", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<PhraseTag> phraseTags = new ArrayList<>();
+
     protected Phrase() {
     }
 
@@ -51,7 +60,55 @@ public class Phrase extends AuditableEntity {
         return content;
     }
 
+    public void setContent(String content) {
+        this.content = content;
+    }
+
     public Author getAuthor() {
         return author;
+    }
+
+    public void setAuthor(Author author) {
+        this.author = author;
+    }
+
+    public Integer getYear() {
+        return year;
+    }
+
+    public void setYear(Integer year) {
+        this.year = year;
+    }
+
+    public String getLanguage() {
+        return language;
+    }
+
+    public void setLanguage(String language) {
+        this.language = language;
+    }
+
+    public String getSource() {
+        return source;
+    }
+
+    public void setSource(String source) {
+        this.source = source;
+    }
+
+    public List<PhraseCategory> getPhraseCategories() {
+        return phraseCategories;
+    }
+
+    public List<PhraseTag> getPhraseTags() {
+        return phraseTags;
+    }
+
+    public List<Category> getCategories() {
+        return phraseCategories.stream().map(PhraseCategory::getCategory).toList();
+    }
+
+    public List<Tag> getTags() {
+        return phraseTags.stream().map(PhraseTag::getTag).toList();
     }
 }
