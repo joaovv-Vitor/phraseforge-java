@@ -1,0 +1,40 @@
+services:
+  db:
+    image: mysql:8.4
+    container_name: phraseforge-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-phraseforge}
+      MYSQL_USER: ${DB_USERNAME:-phraseforge}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-phraseforge}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-phraseforge-root}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  backend:
+    build: ./backend/phraseforge-api
+    container_name: phraseforge-backend
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${DB_NAME:-phraseforge}
+      DB_USERNAME: ${DB_USERNAME:-phraseforge}
+      DB_PASSWORD: ${DB_PASSWORD:-phraseforge}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  mysql_data:
