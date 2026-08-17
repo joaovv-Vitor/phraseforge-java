@@ -8,11 +8,11 @@ import ActionBar from '../../components/admin/ActionBar'
 import EntityTable from '../../components/admin/EntityTable'
 import PhraseForm from '../../components/admin/PhraseForm'
 import Loading from '../../components/Loading'
-import type { Phrase, PhrasePayload } from '../../types/models'
+import type { PhrasePayload, PhraseSummary } from '../../types/models'
 
 export default function AdminPhrases() {
   const [page, setPage] = useState(0)
-  const [editing, setEditing] = useState<Phrase | null>(null)
+  const [editing, setEditing] = useState<PhraseSummary | null>(null)
   const [message, setMessage] = useState('')
 
   const { data, isLoading } = usePhrases({ page, size: 10 })

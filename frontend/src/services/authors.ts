@@ -1,5 +1,5 @@
 import { del, get, post, put } from './api'
-import type { Author, AuthorPayload, AuthorSummary, Paged, Phrase } from '../types/models'
+import type { Author, AuthorPayload, AuthorSummary, Paged, PhraseSummary } from '../types/models'
 
 export type { AuthorPayload } from '../types/models'
 
@@ -11,8 +11,8 @@ export function getAuthor(id: number): Promise<Author> {
   return get<Author>(`/authors/${id}`)
 }
 
-export function getAuthorPhrases(id: number, page = 0, size = 20): Promise<Paged<Phrase>> {
-  return get<Paged<Phrase>>(`/authors/${id}/phrases?page=${page}&size=${size}`)
+export function getAuthorPhrases(id: number, page = 0, size = 20): Promise<Paged<PhraseSummary>> {
+  return get<Paged<PhraseSummary>>(`/authors/${id}/phrases?page=${page}&size=${size}`)
 }
 
 export function createAuthor(body: AuthorPayload): Promise<Author> {
