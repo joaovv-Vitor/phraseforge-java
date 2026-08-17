@@ -1,6 +1,8 @@
 import { del, get, post, put } from './api'
 import type { Author, AuthorPayload, AuthorSummary, Paged, Phrase } from '../types/models'
 
+export type { AuthorPayload } from '../types/models'
+
 export function getAuthors(page = 0, size = 20): Promise<Paged<AuthorSummary>> {
   return get<Paged<AuthorSummary>>(`/authors?page=${page}&size=${size}`)
 }

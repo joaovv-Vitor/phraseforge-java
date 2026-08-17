@@ -1,6 +1,8 @@
 import { del, get, post, put } from './api'
 import type { Paged, Phrase, PhraseFilters, PhrasePayload } from '../types/models'
 
+export type { PhrasePayload } from '../types/models'
+
 function buildQuery(filters: PhraseFilters): string {
   const params = new URLSearchParams()
   if (filters.query) params.set('query', filters.query)

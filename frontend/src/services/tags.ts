@@ -1,6 +1,8 @@
 import { del, get, post, put } from './api'
 import type { Paged, Tag, TagPayload } from '../types/models'
 
+export type { TagPayload } from '../types/models'
+
 export function getTags(page = 0, size = 100): Promise<Paged<Tag>> {
   return get<Paged<Tag>>(`/tags?page=${page}&size=${size}`)
 }

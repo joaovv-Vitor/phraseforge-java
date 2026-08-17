@@ -1,6 +1,8 @@
 import { del, get, post, put } from './api'
 import type { Category, CategoryPayload, CategorySummary, Paged, Phrase } from '../types/models'
 
+export type { CategoryPayload } from '../types/models'
+
 export function getCategories(page = 0, size = 50): Promise<Paged<CategorySummary>> {
   return get<Paged<CategorySummary>>(`/categories?page=${page}&size=${size}`)
 }
