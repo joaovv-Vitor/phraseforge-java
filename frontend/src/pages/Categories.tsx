@@ -2,9 +2,12 @@ import { Link } from 'react-router-dom'
 import { useCategories } from '../hooks/useCategories'
 import Loading from '../components/Loading'
 import ErrorState from '../components/ErrorState'
+import Pagination from '../components/Pagination'
+import { useState } from 'react'
 
 export default function Categories() {
-  const { data, isLoading, isError, error } = useCategories(0, 100)
+  const [page, setPage] = useState(0)
+  const { data, isLoading, isError, error } = useCategories(page, 20)
 
   return (
     <main className="mx-auto max-w-[680px] px-8 py-16">
@@ -40,6 +43,7 @@ export default function Categories() {
           </Link>
         ))}
       </div>
+      {data && <Pagination data={data} onPage={setPage} />}
     </main>
   )
 }

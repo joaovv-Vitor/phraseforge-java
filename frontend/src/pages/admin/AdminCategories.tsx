@@ -5,10 +5,12 @@ import ActionBar from '../../components/admin/ActionBar'
 import EntityTable from '../../components/admin/EntityTable'
 import CategoryForm from '../../components/admin/CategoryForm'
 import Loading from '../../components/Loading'
+import Pagination from '../../components/Pagination'
 import type { CategoryPayload, CategorySummary } from '../../types/models'
 
 export default function AdminCategories() {
-  const { data, isLoading } = useCategories(0, 100)
+  const [page, setPage] = useState(0)
+  const { data, isLoading } = useCategories(page, 20)
   const createCategory = useCreateCategory()
   const deleteCategory = useDeleteCategory()
 
@@ -77,6 +79,7 @@ export default function AdminCategories() {
           </div>
         ))}
       </EntityTable>
+      {data && <Pagination data={data} onPage={setPage} />}
     </div>
   )
 }

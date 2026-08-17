@@ -3,10 +3,12 @@ import { useTags, useCreateTag, useDeleteTag, useUpdateTag } from '../../hooks/u
 import ActionBar from '../../components/admin/ActionBar'
 import TagForm from '../../components/admin/TagForm'
 import Loading from '../../components/Loading'
+import Pagination from '../../components/Pagination'
 import type { Tag, TagPayload } from '../../types/models'
 
 export default function AdminTags() {
-  const { data, isLoading } = useTags(0, 100)
+  const [page, setPage] = useState(0)
+  const { data, isLoading } = useTags(page, 20)
   const createTag = useCreateTag()
   const deleteTag = useDeleteTag()
 
@@ -68,6 +70,7 @@ export default function AdminTags() {
           </div>
         ))}
       </div>
+      {data && <Pagination data={data} onPage={setPage} />}
     </div>
   )
 }

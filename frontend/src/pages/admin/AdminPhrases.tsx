@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useCreatePhrase, useDeletePhrase, usePhrases, useUpdatePhrase } from '../../hooks/usePhrases'
-import { useAuthors } from '../../hooks/useAuthors'
-import { useCategories } from '../../hooks/useCategories'
-import { useTags } from '../../hooks/useTags'
+import { useAllAuthors } from '../../hooks/useAuthors'
+import { useAllCategories } from '../../hooks/useCategories'
+import { useAllTags } from '../../hooks/useTags'
 import ActionBar from '../../components/admin/ActionBar'
 import EntityTable from '../../components/admin/EntityTable'
 import PhraseForm from '../../components/admin/PhraseForm'
@@ -20,9 +20,9 @@ export default function AdminPhrases() {
   const deletePhrase = useDeletePhrase()
   const updatePhrase = useUpdatePhrase(editing?.id ?? 0)
 
-  const authors = useAuthors(0, 100)
-  const categories = useCategories(0, 100)
-  const tags = useTags(0, 100)
+  const authors = useAllAuthors()
+  const categories = useAllCategories()
+  const tags = useAllTags()
 
   const flash = (msg: string) => {
     setMessage(msg)
@@ -69,9 +69,9 @@ export default function AdminPhrases() {
       <PhraseForm
         key={editing?.id ?? 'new'}
         phrase={editing}
-        authors={authors.data?.content ?? []}
-        categories={categories.data?.content ?? []}
-        tags={tags.data?.content ?? []}
+        authors={authors.data ?? []}
+        categories={categories.data ?? []}
+        tags={tags.data ?? []}
         submitLabel={editing ? 'Atualizar Frase' : 'Salvar Frase'}
         onSubmit={handleSubmit}
         onCancel={() => setEditing(null)}
