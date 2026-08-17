@@ -3,6 +3,8 @@ import PublicLayout from './layouts/PublicLayout'
 import Home from './pages/Home'
 import Explore from './pages/Explore'
 import QuoteDetail from './pages/QuoteDetail'
+import Authors from './pages/Authors'
+import AuthorDetail from './pages/AuthorDetail'
 
 export const router = createBrowserRouter([
   {
@@ -12,6 +14,8 @@ export const router = createBrowserRouter([
       { index: true, element: <Home /> },
       { path: 'explore', element: <Explore /> },
       { path: 'frases/:id', element: <QuoteDetail /> },
+      { path: 'autores', element: <Authors /> },
+      { path: 'autores/:id', element: <AuthorDetail /> },
     ],
   },
 ])
