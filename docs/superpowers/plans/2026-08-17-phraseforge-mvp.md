@@ -844,6 +844,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
@@ -860,6 +861,9 @@ class AuthorServiceTest {
 
     @Mock
     private AuthorRepository authorRepository;
+
+    @Spy
+    private AuthorMapper authorMapper;
 
     @InjectMocks
     private AuthorService authorService;
@@ -1524,6 +1528,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
@@ -1540,6 +1545,12 @@ class CategoryServiceTest {
 
     @Mock
     private CategoryRepository categoryRepository;
+
+    @Mock
+    private com.phraseforge.phraseforge_api.phrase.PhraseCategoryRepository phraseCategoryRepository;
+
+    @Spy
+    private CategoryMapper categoryMapper;
 
     @InjectMocks
     private CategoryService categoryService;
@@ -2061,6 +2072,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Optional;
@@ -2077,6 +2089,12 @@ class TagServiceTest {
 
     @Mock
     private TagRepository tagRepository;
+
+    @Mock
+    private com.phraseforge.phraseforge_api.phrase.PhraseTagRepository phraseTagRepository;
+
+    @Spy
+    private TagMapper tagMapper;
 
     @InjectMocks
     private TagService tagService;
@@ -2549,7 +2567,7 @@ public interface PhraseRepository
 }
 ```
 
-Note: listing queries use `findAll(Specification, Pageable)` from `JpaSpecificationExecutor` combined with a custom `@EntityGraph` variant added in Task 9's service — see Task 9 Step 6 for the `findAll` override with `@EntityGraph`.
+Note: listing queries use `findAll(Specification, Pageable)` from `JpaSpecificationExecutor` combined with a custom `@EntityGraph` variant added in Task 9 Step 1.
 
 - [ ] **Step 5: Run the test to verify it passes**
 
@@ -2659,6 +2677,7 @@ public record TagRef(
 package com.phraseforge.phraseforge_api.phrase.dto;
 
 import java.time.Instant;
+import java.util.List;
 
 public record PhraseSummaryResponse(
         Long id,
@@ -2672,8 +2691,6 @@ public record PhraseSummaryResponse(
         Instant createdAt) {
 }
 ```
-
-(The mapper supplies the `List` import; the record file itself needs `import java.util.List;`.)
 
 `phrase/dto/PhraseResponse.java`:
 
@@ -3002,6 +3019,8 @@ class PhraseServiceTest {
     @Mock
     private AuthorRepository authorRepository;
     @Mock
+    private com.phraseforge.phraseforge_api.category.CategoryRepository categoryRepository;
+    @Mock
     private TagRepository tagRepository;
     @Mock
     private PhraseMapper phraseMapper;
@@ -3038,7 +3057,7 @@ class PhraseServiceTest {
 
     @Test
     void update_missingPhrase_throwsNotFound() {
-        when(phraseRepository.findById(99L)).thenReturn(Optional.empty());
+        when(phraseRepository.findWithDetailsById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> phraseService.update(99L,
                 new UpdatePhraseRequest("x", 1L, null, "en", null, Set.of(), Set.of())))
@@ -3088,9 +3107,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
-import java.util.List;
 import java.util.Set;
-import java.util.function.Function;
 
 @Service
 public class PhraseService {
@@ -3387,6 +3404,15 @@ public class PhraseController {
 ```
 
 - [ ] **Step 10: Add author/category phrases endpoints**
+
+> Adding `PhraseService` as a constructor dependency to these controllers changes
+> their `@WebMvcTest` beans. Add to BOTH `AuthorControllerTest` and
+> `CategoryControllerTest`:
+
+```java
+    @MockitoBean
+    private com.phraseforge.phraseforge_api.phrase.PhraseService phraseService;
+```
 
 `AuthorController.java` — add method and dependency:
 
@@ -4064,7 +4090,7 @@ createRoot(document.getElementById('root')!).render(
 `frontend/src/App.tsx` — placeholder routes are filled by later tasks:
 
 ```tsx
-import { createBrowserRouter, Navigate } from 'react-router-dom'
+import { createBrowserRouter } from 'react-router-dom'
 import PublicLayout from './layouts/PublicLayout'
 
 export const router = createBrowserRouter([
@@ -4072,7 +4098,7 @@ export const router = createBrowserRouter([
     path: '/',
     element: <PublicLayout />,
     children: [
-      { index: true, element: <Navigate to="/" replace /> },
+      { index: true, element: <div>Home</div> },
       { path: 'explore', element: <div>Explore</div> },
     ],
   },
@@ -4686,7 +4712,7 @@ export default function Header() {
   const navigate = useNavigate()
 
   return (
-    <header className="sticky top-0 z-100 border-b border-hair-subtle bg-paper">
+    <header className="sticky top-0 z-50 border-b border-hair-subtle bg-paper">
       <div className="mx-auto flex h-[52px] max-w-[1040px] items-center justify-between px-8">
         <button
           onClick={() => navigate('/')}
