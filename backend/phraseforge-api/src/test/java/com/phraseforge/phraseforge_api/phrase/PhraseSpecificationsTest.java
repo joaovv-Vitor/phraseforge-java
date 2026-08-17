@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.util.List;
@@ -123,5 +124,29 @@ class PhraseSpecificationsTest {
         List<Long> ids = findIds(PhraseSpecifications.filter(null, null, null, strength.getId(), null));
         assertThat(ids).hasSize(2);
         assertThat(ids).doesNotHaveDuplicates();
+    }
+
+    @Test
+    void paginatedListing_preservesPageBoundariesAndLoadsCollections() {
+        Specification<Phrase> spec = PhraseSpecifications.filter(null, null, null, null, null);
+        PageRequest pageRequest = PageRequest.of(0, 1, Sort.by("id"));
+
+        Page<Phrase> firstPage = phraseRepository.findAll(spec, pageRequest);
+        Page<Phrase> secondPage = phraseRepository.findAll(spec, pageRequest.next());
+        Page<Phrase> thirdPage = phraseRepository.findAll(spec, pageRequest.next().next());
+
+        assertThat(firstPage.getTotalElements()).isEqualTo(3);
+        assertThat(firstPage.getTotalPages()).isEqualTo(3);
+
+        List<Long> ids = List.of(firstPage, secondPage, thirdPage).stream()
+                .flatMap(page -> page.getContent().stream())
+                .map(Phrase::getId)
+                .toList();
+        assertThat(ids).hasSize(3).doesNotHaveDuplicates();
+
+        Phrase secondPhrase = secondPage.getContent().getFirst();
+        assertThat(secondPhrase.getAuthor()).isNotNull();
+        assertThat(secondPhrase.getCategories()).hasSize(2);
+        assertThat(secondPhrase.getTags()).hasSize(2);
     }
 }
