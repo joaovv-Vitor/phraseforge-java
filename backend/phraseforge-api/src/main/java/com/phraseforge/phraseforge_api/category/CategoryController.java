@@ -5,6 +5,8 @@ import com.phraseforge.phraseforge_api.category.dto.CategorySummaryResponse;
 import com.phraseforge.phraseforge_api.category.dto.CreateCategoryRequest;
 import com.phraseforge.phraseforge_api.category.dto.UpdateCategoryRequest;
 import com.phraseforge.phraseforge_api.common.PagedResponse;
+import com.phraseforge.phraseforge_api.phrase.PhraseService;
+import com.phraseforge.phraseforge_api.phrase.dto.PhraseSummaryResponse;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -23,14 +25,22 @@ import org.springframework.web.bind.annotation.RestController;
 public class CategoryController {
 
     private final CategoryService categoryService;
+    private final PhraseService phraseService;
 
-    public CategoryController(CategoryService categoryService) {
+    public CategoryController(CategoryService categoryService, PhraseService phraseService) {
         this.categoryService = categoryService;
+        this.phraseService = phraseService;
     }
 
     @GetMapping
     public PagedResponse<CategorySummaryResponse> list(Pageable pageable) {
         return categoryService.list(pageable);
+    }
+
+    @GetMapping("/{id}/phrases")
+    public PagedResponse<PhraseSummaryResponse> phrasesByCategory(
+            @PathVariable Long id, Pageable pageable) {
+        return phraseService.list(null, null, id, null, null, pageable);
     }
 
     @GetMapping("/{id}")

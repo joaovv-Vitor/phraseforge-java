@@ -15,8 +15,9 @@ import jakarta.persistence.Table;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "phrases")
@@ -40,10 +41,10 @@ public class Phrase extends AuditableEntity {
     private String source;
 
     @OneToMany(mappedBy = "phrase", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<PhraseCategory> phraseCategories = new ArrayList<>();
+    private Set<PhraseCategory> phraseCategories = new LinkedHashSet<>();
 
     @OneToMany(mappedBy = "phrase", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<PhraseTag> phraseTags = new ArrayList<>();
+    private Set<PhraseTag> phraseTags = new LinkedHashSet<>();
 
     protected Phrase() {
     }
@@ -96,11 +97,11 @@ public class Phrase extends AuditableEntity {
         this.source = source;
     }
 
-    public List<PhraseCategory> getPhraseCategories() {
+    public Set<PhraseCategory> getPhraseCategories() {
         return phraseCategories;
     }
 
-    public List<PhraseTag> getPhraseTags() {
+    public Set<PhraseTag> getPhraseTags() {
         return phraseTags;
     }
 

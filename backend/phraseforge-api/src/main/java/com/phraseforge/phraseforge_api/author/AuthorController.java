@@ -5,6 +5,8 @@ import com.phraseforge.phraseforge_api.author.dto.AuthorSummaryResponse;
 import com.phraseforge.phraseforge_api.author.dto.CreateAuthorRequest;
 import com.phraseforge.phraseforge_api.author.dto.UpdateAuthorRequest;
 import com.phraseforge.phraseforge_api.common.PagedResponse;
+import com.phraseforge.phraseforge_api.phrase.PhraseService;
+import com.phraseforge.phraseforge_api.phrase.dto.PhraseSummaryResponse;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -23,14 +25,22 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthorController {
 
     private final AuthorService authorService;
+    private final PhraseService phraseService;
 
-    public AuthorController(AuthorService authorService) {
+    public AuthorController(AuthorService authorService, PhraseService phraseService) {
         this.authorService = authorService;
+        this.phraseService = phraseService;
     }
 
     @GetMapping
     public PagedResponse<AuthorSummaryResponse> list(Pageable pageable) {
         return authorService.list(pageable);
+    }
+
+    @GetMapping("/{id}/phrases")
+    public PagedResponse<PhraseSummaryResponse> phrasesByAuthor(
+            @PathVariable Long id, Pageable pageable) {
+        return phraseService.list(null, id, null, null, null, pageable);
     }
 
     @GetMapping("/{id}")

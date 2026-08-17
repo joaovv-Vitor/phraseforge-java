@@ -1,5 +1,8 @@
 package com.phraseforge.phraseforge_api.phrase;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
@@ -17,10 +20,14 @@ public interface PhraseRepository
      */
     boolean existsByContentAndAuthor_IdAndIdNot(String content, Long authorId, Long excludeId);
 
-    /**
-     * Loads a phrase with its author, categories, and tags in one query
-     * (avoids N+1 when serializing the detail view).
-     */
     @EntityGraph(attributePaths = {"author", "phraseCategories.category", "phraseTags.tag"})
     Optional<Phrase> findWithDetailsById(Long id);
+
+    /**
+     * Listings eagerly fetch author + categories + tags so the paged JSON
+     * does not trigger N+1 SELECTs. Overrides the inherited method.
+     */
+    @Override
+    @EntityGraph(attributePaths = {"author", "phraseCategories.category", "phraseTags.tag"})
+    Page<Phrase> findAll(Specification<Phrase> spec, Pageable pageable);
 }

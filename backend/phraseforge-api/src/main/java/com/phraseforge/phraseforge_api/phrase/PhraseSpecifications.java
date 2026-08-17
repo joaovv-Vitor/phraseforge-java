@@ -1,6 +1,5 @@
 package com.phraseforge.phraseforge_api.phrase;
 
-import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.JoinType;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
@@ -21,24 +20,29 @@ public final class PhraseSpecifications {
 
             if (query != null && !query.isBlank()) {
                 String like = "%" + query.trim().toLowerCase(Locale.ROOT) + "%";
-                Join<Phrase, ?> authorJoin = root.join("author", JoinType.LEFT);
+                var authorJoin = root.join("author", JoinType.LEFT);
                 predicates.add(cb.or(
                         cb.like(cb.lower(root.get("content")), like),
                         cb.like(cb.lower(authorJoin.get("name")), like)));
             }
 
             if (authorId != null) {
-                predicates.add(cb.equal(root.get("author").get("id"), authorId));
+                predicates.add(cb.equal(root.join("author").get("id"), authorId));
+            }
+
+            boolean hasCollectionFilter = categoryId != null || tagId != null;
+            if (hasCollectionFilter) {
+                cq.distinct(true);
             }
 
             if (categoryId != null) {
-                root.join("phraseCategories", JoinType.LEFT).get("category");
-                cq.distinct(true);
-                predicates.add(cb.equal(root.get("phraseCategories").get("category").get("id"), categoryId));
+                var catJoin = root.join("phraseCategories", JoinType.LEFT);
+                predicates.add(cb.equal(catJoin.get("category").get("id"), categoryId));
             }
 
             if (tagId != null) {
-                predicates.add(cb.equal(root.get("phraseTags").get("tag").get("id"), tagId));
+                var tagJoin = root.join("phraseTags", JoinType.LEFT);
+                predicates.add(cb.equal(tagJoin.get("tag").get("id"), tagId));
             }
 
             if (language != null && !language.isBlank()) {
