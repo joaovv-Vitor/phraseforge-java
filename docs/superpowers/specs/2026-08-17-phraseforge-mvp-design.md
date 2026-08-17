@@ -185,6 +185,12 @@ Vite + React 19 + TS + React Router + Tailwind v4 + TanStack Query.
 (e.g. "Explore" → "Explorar", "New Quote" → "Nova Frase", "Share" → "Compartilhar",
 "Copy" → "Copiar", "Authors" → "Autores", "Categories" → "Categorias"). Quote content
 remains as authored.
+- **Year display:** `year` stays `SMALLINT` (schema unchanged). The MVP intentionally
+  does **not** model BCE/CE eras or approximate dates (e.g. "c. 170 AD"). Where the
+  source data is uncertain, numeric years must not be presented as historically
+  precise — the frontend renders the year as a plain number, and seed data omits
+  `year` for quotes with uncertain dating. This deviation from the prototype's
+  "c. 170 AD" formatting is documented in the README.
 
 **Structure:**
 
