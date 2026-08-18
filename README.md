@@ -166,6 +166,11 @@ Os endpoints de favoritos exigem um access token de qualquer usuário
 autenticado. As respostas de frases contêm `favorited`, que indica o estado
 para o usuário do token e é `false` em requisições anônimas.
 
+No frontend, `/login` e `/cadastro` iniciam a sessão. O access token permanece
+somente em memória; ao recarregar a aplicação, ela tenta restaurar a sessão
+com o cookie `HttpOnly` de refresh. Requisições autenticadas enviam o bearer
+token e compartilham uma única tentativa de refresh após `401`.
+
 ## Estrutura do projeto
 
 ```

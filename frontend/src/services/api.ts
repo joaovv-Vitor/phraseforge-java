@@ -1,5 +1,9 @@
 const BASE_URL = import.meta.env.VITE_API_URL ?? '/api/v1'
 
+let accessToken: string | null = null
+let refreshHandler: (() => Promise<string | null>) | null = null
+let pendingRefresh: Promise<string | null> | null = null
+
 export class ApiError extends Error {
   status: number
 
@@ -15,11 +19,35 @@ export interface ApiErrorBody {
   timestamp: string
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+export function setAccessToken(token: string | null) {
+  accessToken = token
+}
+
+export function setRefreshHandler(handler: (() => Promise<string | null>) | null) {
+  refreshHandler = handler
+}
+
+async function request<T>(path: string, options: RequestInit = {}, retried = false): Promise<T> {
+  const headers = new Headers(options.headers)
+  headers.set('Content-Type', 'application/json')
+  if (accessToken) {
+    headers.set('Authorization', `Bearer ${accessToken}`)
+  }
+
   const res = await fetch(`${BASE_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
     ...options,
+    credentials: 'include',
+    headers,
   })
+
+  if (res.status === 401 && !retried && path !== '/auth/refresh' && refreshHandler) {
+    pendingRefresh ??= refreshHandler().finally(() => {
+      pendingRefresh = null
+    })
+    if (await pendingRefresh) {
+      return request<T>(path, options, true)
+    }
+  }
 
   if (!res.ok) {
     let message = `Request failed with status ${res.status}`

@@ -13,6 +13,7 @@ import AdminPhrases from './pages/admin/AdminPhrases'
 import AdminAuthors from './pages/admin/AdminAuthors'
 import AdminCategories from './pages/admin/AdminCategories'
 import AdminTags from './pages/admin/AdminTags'
+import AuthPage from './pages/AuthPage'
 
 export const router = createBrowserRouter([
   {
@@ -26,6 +27,8 @@ export const router = createBrowserRouter([
       { path: 'autores/:id', element: <AuthorDetail /> },
       { path: 'categorias', element: <Categories /> },
       { path: 'categorias/:id', element: <CategoryDetail /> },
+      { path: 'login', element: <AuthPage mode="login" /> },
+      { path: 'cadastro', element: <AuthPage mode="register" /> },
     ],
   },
   {
