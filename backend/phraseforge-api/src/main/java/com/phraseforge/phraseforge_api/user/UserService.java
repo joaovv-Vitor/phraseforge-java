@@ -1,5 +1,7 @@
 package com.phraseforge.phraseforge_api.user;
 
+import com.phraseforge.phraseforge_api.auth.InvalidCredentialsException;
+import com.phraseforge.phraseforge_api.exception.DuplicateResourceException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,10 +41,37 @@ public class UserService {
         return true;
     }
 
+    @Transactional
+    public User register(String rawEmail, String rawDisplayName, String password) {
+        String email = normalizeEmail(rawEmail);
+        if (userRepository.existsByEmail(email)) {
+            throw new DuplicateResourceException("Email is already registered");
+        }
+        PasswordPolicy.requireValid(password);
+        String displayName = normalizeDisplayName(rawDisplayName);
+        return userRepository.save(new User(email, passwordEncoder.encode(password), displayName, UserRole.USER));
+    }
+
+    @Transactional(readOnly = true)
+    public User authenticate(String rawEmail, String password) {
+        String email = normalizeEmail(rawEmail);
+        return userRepository.findByEmail(email)
+                .filter(User::isEnabled)
+                .filter(user -> password != null && passwordEncoder.matches(password, user.getPasswordHash()))
+                .orElseThrow(InvalidCredentialsException::new);
+    }
+
     static String normalizeEmail(String email) {
         if (email == null || email.isBlank()) {
             throw new IllegalArgumentException("Email must not be blank");
         }
         return email.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static String normalizeDisplayName(String displayName) {
+        if (displayName == null || displayName.isBlank()) {
+            throw new IllegalArgumentException("Display name must not be blank");
+        }
+        return displayName.trim();
     }
 }

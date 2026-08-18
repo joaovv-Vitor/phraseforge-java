@@ -101,10 +101,18 @@ Copie `.env.example` para `.env` e ajuste:
 | `CORS_ALLOWED_ORIGINS` | Origens permitidas no CORS | `http://localhost:5173` |
 | `APP_BOOTSTRAP_ADMIN_EMAIL` | E-mail do primeiro administrador; exige a senha correspondente | vazio |
 | `APP_BOOTSTRAP_ADMIN_PASSWORD` | Senha usada uma única vez para criar o primeiro administrador | vazio |
+| `JWT_SECRET` | Chave Base64 de ao menos 32 bytes para assinar os access tokens | obrigatório |
+| `JWT_ISSUER` | Emissor incluído e validado nos JWTs | `phraseforge` |
+| `JWT_ACCESS_TTL` | Duração ISO-8601 do access token | `PT15M` |
+| `REFRESH_TOKEN_TTL` | Duração ISO-8601 da sessão de refresh | `P30D` |
+| `COOKIE_SECURE` | Exige HTTPS para o cookie de refresh | `false` no Compose local; `true` em produção |
 | `VITE_API_URL` | Base URL da API para o frontend; em Docker é um build arg | `/api/v1` |
 
 Nunca commite credenciais reais. Após criar o primeiro administrador, remova a
 senha de bootstrap do ambiente de execução.
+
+Gere o segredo JWT, por exemplo, com `openssl rand -base64 32`. A aplicação
+recusa iniciar se ele estiver ausente ou tiver menos de 32 bytes.
 
 ## API
 
@@ -132,9 +140,18 @@ POST/PUT/DELETE /api/v1/categories/...
 
 GET    /api/v1/tags              listagem paginada
 POST/PUT/DELETE /api/v1/tags/...
+
+POST   /api/v1/auth/register    cria conta; retorna access token e define cookie de refresh
+POST   /api/v1/auth/login       inicia sessão; retorna access token e define cookie de refresh
+POST   /api/v1/auth/refresh     rotaciona o cookie de refresh e retorna novo access token
+POST   /api/v1/auth/logout      revoga a sessão atual e remove o cookie de refresh
 ```
 
 Respostas de erro consistentes: `{ "status", "message", "timestamp" }`.
+Os access tokens devem ser enviados em `Authorization: Bearer <token>`. O
+cookie de refresh é `HttpOnly`, `SameSite=Strict` e limitado a `/api/v1/auth`;
+o cliente web deve usar requisições com credenciais para os endpoints de
+refresh e logout.
 
 ## Estrutura do projeto
 
@@ -156,8 +173,9 @@ Respostas de erro consistentes: `{ "status", "message", "timestamp" }`.
   foi dita ou escrita**. O MVP não modela eras (a.C./d.C.) nem datas
   aproximadas ("c. 170 d.C."). Anos incertos não são preenchidos, e números
   não devem ser lidos como precisão histórica quando a fonte é incerta.
-- **Sem autenticação:** a área administrativa é aberta (controle de acesso é
-  escopo da V1).
+- **Autorização transitória:** os endpoints de autenticação já existem, mas a
+  proteção das rotas administrativas por papel será aplicada na próxima etapa
+  da V1.
 - **Busca:** filtros via query string (contém), sem busca full-text do MySQL.
 
 ## Testes
