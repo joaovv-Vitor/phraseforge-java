@@ -74,7 +74,7 @@ npm run dev
 
 Aplicação em `http://localhost:5173`. O Vite faz proxy de `/api` para o
 backend (sem CORS no desenvolvimento). Para apontar para outro backend,
-defina `VITE_API_URL`.
+defina `VITE_API_URL` em `frontend/.env.local` ou no ambiente do processo.
 
 ### Tudo de uma vez (Docker)
 
@@ -82,7 +82,9 @@ defina `VITE_API_URL`.
 docker compose up -d --build
 ```
 
-Backend disponível em `http://localhost:8080`, banco em `localhost:3306`.
+Frontend disponível em `http://localhost:5173`, backend em
+`http://localhost:8080` e banco em `localhost:3306`. No frontend servido pelo
+Compose, o Nginx encaminha `/api` internamente para o backend.
 
 ## Variáveis de ambiente
 
@@ -97,7 +99,7 @@ Copie `.env.example` para `.env` e ajuste:
 | `DB_PASSWORD` | Senha | `phraseforge` |
 | `MYSQL_ROOT_PASSWORD` | Senha root do container MySQL | `phraseforge-root` |
 | `CORS_ALLOWED_ORIGINS` | Origens permitidas no CORS | `http://localhost:5173` |
-| `VITE_API_URL` | Base URL da API para o frontend | `/api/v1` |
+| `VITE_API_URL` | Base URL da API para o frontend; em Docker é um build arg | `/api/v1` |
 
 Nunca commite credenciais reais.
 
@@ -136,6 +138,8 @@ Respostas de erro consistentes: `{ "status", "message", "timestamp" }`.
 ```
 ├── backend/phraseforge-api/   Spring Boot (Maven)
 ├── frontend/                  Vite + React + TS
+│   ├── Dockerfile             Build multi-stage Node + Nginx
+│   └── nginx.conf             SPA fallback e proxy de `/api`
 ├── docs/prototype/            Protótipo Figma (referência visual)
 ├── docker-compose.yml
 ├── .env.example
@@ -162,7 +166,15 @@ cd backend/phraseforge-api
 
 Testes de service (Mockito), repository (`@DataJpaTest` com H2 em modo MySQL)
 e controller (`@WebMvcTest`). O H2 é dependência apenas de teste; produção e
-desenvolvimento usam MySQL.
+desenvolvimento usam MySQL. Java 25 executa o Mockito como agente configurado
+no Maven Surefire.
+
+## Estado da estabilização
+
+A branch `fix/mvp-stabilization` contém as correções de contratos TypeScript,
+validação de recursos relacionados, paginação de listas, carregamento paginado
+de opções administrativas, configuração do agente Mockito e execução do
+frontend via Docker Compose.
 
 ## Roadmap
 
