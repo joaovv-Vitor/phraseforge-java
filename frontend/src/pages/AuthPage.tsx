@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { ApiError } from '../services/api'
 
@@ -8,12 +8,16 @@ type Mode = 'login' | 'register'
 export default function AuthPage({ mode }: { mode: Mode }) {
   const { login, register } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [email, setEmail] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const registering = mode === 'register'
+  const destination = typeof (location.state as { from?: unknown } | null)?.from === 'string'
+    ? (location.state as { from: string }).from
+    : '/'
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -25,7 +29,7 @@ export default function AuthPage({ mode }: { mode: Mode }) {
       } else {
         await login({ email, password })
       }
-      navigate('/', { replace: true })
+      navigate(destination, { replace: true })
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : 'Não foi possível concluir a solicitação.')
     } finally {

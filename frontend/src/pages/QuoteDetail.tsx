@@ -5,6 +5,7 @@ import { formatYear } from '../lib/utils'
 import Chip from '../components/Chip'
 import Loading from '../components/Loading'
 import ErrorState from '../components/ErrorState'
+import FavoriteButton from '../components/FavoriteButton'
 
 export default function QuoteDetail() {
   const { id } = useParams<{ id: string }>()
@@ -70,6 +71,7 @@ export default function QuoteDetail() {
         >
           {copiedId === 'quote' ? '✓ Copiada' : '⎘ Copiar Frase'}
         </button>
+        <FavoriteButton phraseId={data.id} favorited={data.favorited} />
         <button
           onClick={() => copy(window.location.href, 'share')}
           className="rounded border border-hair px-4 py-2 text-[13px] text-ink-muted transition-all hover:border-ink-muted hover:text-ink"

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useRandomPhrase } from '../hooks/usePhrases'
 import { useCopy } from '../lib/useCopy'
 import { formatYear } from '../lib/utils'
+import FavoriteButton from '../components/FavoriteButton'
 
 export default function Home() {
   const { data, isLoading, isError, refetch } = useRandomPhrase()
@@ -73,6 +74,7 @@ export default function Home() {
             <span>↗</span>
             {copiedId === 'share' ? 'Link copiado' : 'Compartilhar'}
           </button>
+          <FavoriteButton phraseId={phrase.id} favorited={phrase.favorited} compact />
         </div>
 
         <div className="flex items-center gap-6">

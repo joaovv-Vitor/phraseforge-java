@@ -171,6 +171,12 @@ somente em memória; ao recarregar a aplicação, ela tenta restaurar a sessão
 com o cookie `HttpOnly` de refresh. Requisições autenticadas enviam o bearer
 token e compartilham uma única tentativa de refresh após `401`.
 
+`/favoritos` exige autenticação e redireciona o visitante para login, retornando
+ao destino original depois da sessão ser criada. `/admin/**` exige papel
+`ADMIN`; contas comuns veem uma página de acesso negado. Os controles de
+favoritar atualizam a interface de forma otimista e restauram o estado anterior
+se a API rejeitar a operação.
+
 ## Estrutura do projeto
 
 ```

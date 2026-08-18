@@ -49,6 +49,7 @@ export default function Header() {
           {status === 'authenticated' && user ? (
             <>
               <span className="text-[13px] text-ink-muted">{user.displayName}</span>
+              <NavLink to="/favoritos" className="text-[13px] text-ink-muted transition-colors hover:text-ink">Favoritos</NavLink>
               {user.role === 'ADMIN' ? <NavLink to="/admin" className="text-[13px] text-ink-muted transition-colors hover:text-ink">Admin</NavLink> : null}
               <button onClick={signOut} className="text-[13px] text-ink-muted transition-colors hover:text-ink">Sair</button>
             </>
@@ -85,6 +86,7 @@ export default function Header() {
           ))}
           {status === 'authenticated' && user ? (
             <>
+              <NavLink to="/favoritos" onClick={() => setOpen(false)} className="border-b border-hair-subtle py-2.5 text-[15px] text-ink-muted">Favoritos</NavLink>
               {user.role === 'ADMIN' ? <NavLink to="/admin" onClick={() => setOpen(false)} className="border-b border-hair-subtle py-2.5 text-[15px] text-ink-muted">Admin</NavLink> : null}
               <button onClick={signOut} className="py-2.5 text-left text-[15px] text-ink-muted">Sair</button>
             </>

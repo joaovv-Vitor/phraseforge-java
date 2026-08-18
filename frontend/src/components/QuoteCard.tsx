@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import type { PhraseSummary } from '../types/models'
 import { formatYear } from '../lib/utils'
 import { useCopy } from '../lib/useCopy'
+import FavoriteButton from './FavoriteButton'
 
 export default function QuoteCard({ phrase }: { phrase: PhraseSummary }) {
   const { copiedId, copy } = useCopy()
@@ -23,12 +24,12 @@ export default function QuoteCard({ phrase }: { phrase: PhraseSummary }) {
           </p>
         </div>
       </Link>
-      <button
-        onClick={handleCopy}
-        className="self-start text-xs text-ink-faint transition-colors hover:text-ink"
-      >
-        {copiedId === String(phrase.id) ? '✓ Copiada' : '⎘ Copiar'}
-      </button>
+      <div className="flex items-center gap-4">
+        <button onClick={handleCopy} className="text-xs text-ink-faint transition-colors hover:text-ink">
+          {copiedId === String(phrase.id) ? '✓ Copiada' : '⎘ Copiar'}
+        </button>
+        <FavoriteButton phraseId={phrase.id} favorited={phrase.favorited} compact />
+      </div>
     </div>
   )
 }

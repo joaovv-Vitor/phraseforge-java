@@ -14,6 +14,10 @@ import AdminAuthors from './pages/admin/AdminAuthors'
 import AdminCategories from './pages/admin/AdminCategories'
 import AdminTags from './pages/admin/AdminTags'
 import AuthPage from './pages/AuthPage'
+import Favorites from './pages/Favorites'
+import Forbidden from './pages/Forbidden'
+import { RequireAuth } from './auth/RequireAuth'
+import { RequireRole } from './auth/RequireRole'
 
 export const router = createBrowserRouter([
   {
@@ -29,11 +33,13 @@ export const router = createBrowserRouter([
       { path: 'categorias/:id', element: <CategoryDetail /> },
       { path: 'login', element: <AuthPage mode="login" /> },
       { path: 'cadastro', element: <AuthPage mode="register" /> },
+      { path: 'favoritos', element: <RequireAuth><Favorites /></RequireAuth> },
+      { path: 'acesso-negado', element: <Forbidden /> },
     ],
   },
   {
     path: '/admin',
-    element: <AdminLayout />,
+    element: <RequireRole role="ADMIN"><AdminLayout /></RequireRole>,
     children: [
       { index: true, element: <Dashboard /> },
       { path: 'frases', element: <AdminPhrases /> },
