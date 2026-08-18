@@ -13,5 +13,20 @@ public record PhraseResponse(
         List<CategoryRef> categories,
         List<TagRef> tags,
         Instant createdAt,
-        Instant updatedAt) {
+        Instant updatedAt,
+        boolean favorited) {
+
+    public PhraseResponse(
+            Long id,
+            String content,
+            Integer year,
+            String language,
+            String source,
+            AuthorRef author,
+            List<CategoryRef> categories,
+            List<TagRef> tags,
+            Instant createdAt,
+            Instant updatedAt) {
+        this(id, content, year, language, source, author, categories, tags, createdAt, updatedAt, false);
+    }
 }

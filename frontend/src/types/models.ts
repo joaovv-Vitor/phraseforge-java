@@ -66,6 +66,7 @@ export interface PhraseSummary {
   categories: CategoryRef[]
   tags: TagRef[]
   createdAt: string
+  favorited: boolean
 }
 
 export interface Phrase extends PhraseSummary {

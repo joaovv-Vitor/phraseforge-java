@@ -70,6 +70,10 @@ public class JwtService {
         return jwtDecoder.decode(token);
     }
 
+    public JwtDecoder decoder() {
+        return jwtDecoder;
+    }
+
     private static SecretKey secretKey(String encodedSecret) {
         if (encodedSecret == null || encodedSecret.isBlank()) {
             throw new IllegalStateException("JWT_SECRET must be configured");
