@@ -59,7 +59,7 @@ cd backend/phraseforge-api
 ./mvnw spring-boot:run
 ```
 
-As migrations Flyway (V1–V7) criam o schema e inserem dados de demonstração.
+As migrations Flyway (V1–V10) criam o schema; V7 também insere dados de demonstração.
 API disponível em `http://localhost:8080/api/v1`.
 Swagger UI: `http://localhost:8080/swagger-ui.html`.
 Actuator health: `http://localhost:8080/actuator/health`.

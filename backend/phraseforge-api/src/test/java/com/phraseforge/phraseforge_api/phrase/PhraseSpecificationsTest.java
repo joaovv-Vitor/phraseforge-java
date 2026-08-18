@@ -4,6 +4,7 @@ import com.phraseforge.phraseforge_api.author.Author;
 import com.phraseforge.phraseforge_api.author.AuthorRepository;
 import com.phraseforge.phraseforge_api.category.Category;
 import com.phraseforge.phraseforge_api.category.CategoryRepository;
+import com.phraseforge.phraseforge_api.support.DatabaseFixtureCleanup;
 import com.phraseforge.phraseforge_api.tag.Tag;
 import com.phraseforge.phraseforge_api.tag.TagRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,7 +21,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
-class PhraseSpecificationsTest {
+class PhraseSpecificationsTest extends DatabaseFixtureCleanup {
 
     @Autowired
     private PhraseRepository phraseRepository;

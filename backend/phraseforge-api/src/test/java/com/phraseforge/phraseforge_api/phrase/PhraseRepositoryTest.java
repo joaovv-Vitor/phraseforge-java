@@ -2,6 +2,7 @@ package com.phraseforge.phraseforge_api.phrase;
 
 import com.phraseforge.phraseforge_api.author.Author;
 import com.phraseforge.phraseforge_api.author.AuthorRepository;
+import com.phraseforge.phraseforge_api.support.DatabaseFixtureCleanup;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -9,7 +10,7 @@ import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
-class PhraseRepositoryTest {
+class PhraseRepositoryTest extends DatabaseFixtureCleanup {
 
     @Autowired
     private PhraseRepository phraseRepository;
