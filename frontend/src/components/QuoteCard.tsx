@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom'
-import type { Phrase } from '../types/models'
+import type { PhraseSummary } from '../types/models'
 import { formatYear } from '../lib/utils'
 import { useCopy } from '../lib/useCopy'
 
-export default function QuoteCard({ phrase }: { phrase: Phrase }) {
+export default function QuoteCard({ phrase }: { phrase: PhraseSummary }) {
   const { copiedId, copy } = useCopy()
   const label = phrase.categories.length > 0 ? phrase.categories[0].name : ''
 

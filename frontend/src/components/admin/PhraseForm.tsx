@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import FormField from './FormField'
-import type { AuthorSummary, CategorySummary, Phrase, PhrasePayload, Tag } from '../../types/models'
+import type { AuthorSummary, CategorySummary, PhraseSummary, PhrasePayload, Tag } from '../../types/models'
 
 export default function PhraseForm({
   phrase,
@@ -11,7 +11,7 @@ export default function PhraseForm({
   onSubmit,
   onCancel,
 }: {
-  phrase?: Phrase | null
+  phrase?: PhraseSummary | null
   authors: AuthorSummary[]
   categories: CategorySummary[]
   tags: Tag[]

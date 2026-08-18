@@ -56,7 +56,7 @@ export interface TagRef {
   name: string
 }
 
-export interface Phrase {
+export interface PhraseSummary {
   id: number
   content: string
   year: number | null
@@ -66,10 +66,11 @@ export interface Phrase {
   categories: CategoryRef[]
   tags: TagRef[]
   createdAt: string
-  updatedAt: string
 }
 
-export type PhraseSummary = Phrase
+export interface Phrase extends PhraseSummary {
+  updatedAt: string
+}
 
 export interface Paged<T> {
   content: T[]

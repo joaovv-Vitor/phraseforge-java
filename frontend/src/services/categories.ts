@@ -1,5 +1,5 @@
 import { del, get, post, put } from './api'
-import type { Category, CategoryPayload, CategorySummary, Paged, Phrase } from '../types/models'
+import type { Category, CategoryPayload, CategorySummary, Paged, PhraseSummary } from '../types/models'
 
 export type { CategoryPayload } from '../types/models'
 
@@ -11,8 +11,8 @@ export function getCategory(id: number): Promise<Category> {
   return get<Category>(`/categories/${id}`)
 }
 
-export function getCategoryPhrases(id: number, page = 0, size = 20): Promise<Paged<Phrase>> {
-  return get<Paged<Phrase>>(`/categories/${id}/phrases?page=${page}&size=${size}`)
+export function getCategoryPhrases(id: number, page = 0, size = 20): Promise<Paged<PhraseSummary>> {
+  return get<Paged<PhraseSummary>>(`/categories/${id}/phrases?page=${page}&size=${size}`)
 }
 
 export function createCategory(body: CategoryPayload): Promise<Category> {

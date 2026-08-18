@@ -8,11 +8,27 @@ import {
   updateAuthor,
   type AuthorPayload,
 } from '../services/authors'
+import type { AuthorSummary } from '../types/models'
 
 export function useAuthors(page = 0, size = 20) {
   return useQuery({
     queryKey: ['authors', 'list', page, size],
     queryFn: () => getAuthors(page, size),
+  })
+}
+
+export function useAllAuthors() {
+  return useQuery({
+    queryKey: ['authors', 'all'],
+    queryFn: async (): Promise<AuthorSummary[]> => {
+      const first = await getAuthors(0, 100)
+      const rest = await Promise.all(
+        Array.from({ length: Math.max(first.totalPages - 1, 0) }, (_, index) =>
+          getAuthors(index + 1, 100),
+        ),
+      )
+      return [first, ...rest].flatMap((page) => page.content)
+    },
   })
 }
 

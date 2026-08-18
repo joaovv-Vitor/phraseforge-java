@@ -4,11 +4,13 @@ import { useAuthors } from '../hooks/useAuthors'
 import SearchInput from '../components/SearchInput'
 import Loading from '../components/Loading'
 import ErrorState from '../components/ErrorState'
+import Pagination from '../components/Pagination'
 import { formatYear } from '../lib/utils'
 
 export default function Authors() {
   const [query, setQuery] = useState('')
-  const { data, isLoading, isError, error } = useAuthors(0, 100)
+  const [page, setPage] = useState(0)
+  const { data, isLoading, isError, error } = useAuthors(page, 20)
 
   const results = useMemo(() => {
     if (!data) return []
@@ -31,7 +33,7 @@ export default function Authors() {
       </div>
 
       <div className="mb-10">
-        <SearchInput value={query} onChange={setQuery} placeholder="Buscar autores..." />
+        <SearchInput value={query} onChange={(value) => { setQuery(value); setPage(0) }} placeholder="Buscar autores..." />
       </div>
 
       {isLoading && <Loading />}
@@ -60,6 +62,7 @@ export default function Authors() {
           </Link>
         ))}
       </div>
+      {data && <Pagination data={data} onPage={setPage} />}
     </main>
   )
 }

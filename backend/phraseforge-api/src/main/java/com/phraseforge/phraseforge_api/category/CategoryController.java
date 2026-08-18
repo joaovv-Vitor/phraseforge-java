@@ -40,6 +40,7 @@ public class CategoryController {
     @GetMapping("/{id}/phrases")
     public PagedResponse<PhraseSummaryResponse> phrasesByCategory(
             @PathVariable Long id, Pageable pageable) {
+        categoryService.ensureExists(id);
         return phraseService.list(null, null, id, null, null, pageable);
     }
 

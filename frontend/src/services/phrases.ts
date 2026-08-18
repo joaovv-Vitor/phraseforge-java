@@ -1,5 +1,5 @@
 import { del, get, post, put } from './api'
-import type { Paged, Phrase, PhraseFilters, PhrasePayload } from '../types/models'
+import type { Paged, Phrase, PhraseFilters, PhrasePayload, PhraseSummary } from '../types/models'
 
 export type { PhrasePayload } from '../types/models'
 
@@ -15,8 +15,8 @@ function buildQuery(filters: PhraseFilters): string {
   return params.toString()
 }
 
-export function getPhrases(filters: PhraseFilters = {}): Promise<Paged<Phrase>> {
-  return get<Paged<Phrase>>(`/phrases?${buildQuery(filters)}`)
+export function getPhrases(filters: PhraseFilters = {}): Promise<Paged<PhraseSummary>> {
+  return get<Paged<PhraseSummary>>(`/phrases?${buildQuery(filters)}`)
 }
 
 export function getPhrase(id: number): Promise<Phrase> {

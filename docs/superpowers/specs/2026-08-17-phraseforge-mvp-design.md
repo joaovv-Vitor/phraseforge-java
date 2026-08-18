@@ -72,7 +72,7 @@ author/    category/    tag/    phrase/
 Shared:
 
 ```
-common/      AuditableEntity, PagedResponse<T>, PageableParser
+common/      AuditableEntity, PagedResponse<T>, SlugUtil
 config/      CorsConfig, OpenApiConfig
 exception/   ApiExceptionHandler (@RestControllerAdvice), ResourceNotFoundException, DuplicateResourceException, ApiError
 ```
@@ -240,11 +240,15 @@ src/
   `condition: service_healthy` — no `sleep` hacks.
 - `backend`: built from `backend/phraseforge-api/Dockerfile`, depends on healthy db,
   exposes 8080, env for DB vars.
+- `frontend`: built from `frontend/Dockerfile`, served by Nginx on host port 5173,
+  depends on the backend, proxies `/api` to the backend, and serves the React SPA
+  fallback for client-side routes.
 
 ## 12. Configuration & secrets
 
 - Env vars: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`
-  (+ `VITE_API_URL` for frontend).
+  (+ `VITE_API_URL` for frontend; local development uses `frontend/.env.local`,
+  Docker uses a build argument with `/api/v1` as default).
 - `.env.example` committed; real `.env` gitignored. No real credentials committed.
 - CORS: dev origins allowlist (e.g. `http://localhost:5173`) via config, not
   blanket `*`.

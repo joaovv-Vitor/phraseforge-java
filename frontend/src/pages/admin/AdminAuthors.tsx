@@ -5,10 +5,12 @@ import ActionBar from '../../components/admin/ActionBar'
 import EntityTable from '../../components/admin/EntityTable'
 import AuthorForm from '../../components/admin/AuthorForm'
 import Loading from '../../components/Loading'
+import Pagination from '../../components/Pagination'
 import type { AuthorPayload, AuthorSummary } from '../../types/models'
 
 export default function AdminAuthors() {
-  const { data, isLoading } = useAuthors(0, 100)
+  const [page, setPage] = useState(0)
+  const { data, isLoading } = useAuthors(page, 20)
   const createAuthor = useCreateAuthor()
   const deleteAuthor = useDeleteAuthor()
 
@@ -77,6 +79,7 @@ export default function AdminAuthors() {
           </div>
         ))}
       </EntityTable>
+      {data && <Pagination data={data} onPage={setPage} />}
     </div>
   )
 }
