@@ -183,5 +183,7 @@ Filtros · Frase aleatória · CRUD administrativo · API REST
 
 **V1** — Autenticação · JWT · Usuários · Roles · Favoritos
 
+[Especificação de autenticação e favoritos](docs/superpowers/specs/2026-08-17-phraseforge-auth-favorites-design.md)
+
 **V2** — Ranking · Frase do dia · Recomendações · Histórico · Sugestões ·
 Recursos avançados da API
