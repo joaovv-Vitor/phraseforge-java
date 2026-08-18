@@ -14,6 +14,10 @@ import org.springframework.stereotype.Component;
 public class PhraseMapper {
 
     public PhraseSummaryResponse toSummary(Phrase phrase) {
+        return toSummary(phrase, false);
+    }
+
+    public PhraseSummaryResponse toSummary(Phrase phrase, boolean favorited) {
         return new PhraseSummaryResponse(
                 phrase.getId(),
                 phrase.getContent(),
@@ -23,10 +27,15 @@ public class PhraseMapper {
                 authorRef(phrase.getAuthor()),
                 phrase.getCategories().stream().map(this::categoryRef).toList(),
                 phrase.getTags().stream().map(this::tagRef).toList(),
-                phrase.getCreatedAt());
+                phrase.getCreatedAt(),
+                favorited);
     }
 
     public PhraseResponse toResponse(Phrase phrase) {
+        return toResponse(phrase, false);
+    }
+
+    public PhraseResponse toResponse(Phrase phrase, boolean favorited) {
         return new PhraseResponse(
                 phrase.getId(),
                 phrase.getContent(),
@@ -37,7 +46,8 @@ public class PhraseMapper {
                 phrase.getCategories().stream().map(this::categoryRef).toList(),
                 phrase.getTags().stream().map(this::tagRef).toList(),
                 phrase.getCreatedAt(),
-                phrase.getUpdatedAt());
+                phrase.getUpdatedAt(),
+                favorited);
     }
 
     private AuthorRef authorRef(Author author) {

@@ -43,6 +43,20 @@ class SecurityAuthorizationTest {
     }
 
     @Test
+    void favorites_requireAuthentication() throws Exception {
+        mockMvc.perform(get("/api/v1/users/me/favorites"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401));
+    }
+
+    @Test
+    void favorites_areAvailableToAuthenticatedUsers() throws Exception {
+        mockMvc.perform(get("/api/v1/users/me/favorites")
+                        .header(HttpHeaders.AUTHORIZATION, bearer(UserRole.USER)))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void catalogWrites_rejectRegularUsers() throws Exception {
         mockMvc.perform(post("/api/v1/phrases")
                         .header(HttpHeaders.AUTHORIZATION, bearer(UserRole.USER))

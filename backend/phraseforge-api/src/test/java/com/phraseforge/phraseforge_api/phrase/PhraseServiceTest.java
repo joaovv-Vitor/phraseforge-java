@@ -4,6 +4,7 @@ import com.phraseforge.phraseforge_api.author.Author;
 import com.phraseforge.phraseforge_api.author.AuthorRepository;
 import com.phraseforge.phraseforge_api.exception.DuplicateResourceException;
 import com.phraseforge.phraseforge_api.exception.ResourceNotFoundException;
+import com.phraseforge.phraseforge_api.favorite.FavoriteService;
 import com.phraseforge.phraseforge_api.phrase.dto.CreatePhraseRequest;
 import com.phraseforge.phraseforge_api.phrase.dto.PhraseResponse;
 import com.phraseforge.phraseforge_api.phrase.dto.UpdatePhraseRequest;
@@ -38,6 +39,8 @@ class PhraseServiceTest {
     private TagRepository tagRepository;
     @Mock
     private PhraseMapper phraseMapper;
+    @Mock
+    private FavoriteService favoriteService;
 
     @InjectMocks
     private PhraseService phraseService;

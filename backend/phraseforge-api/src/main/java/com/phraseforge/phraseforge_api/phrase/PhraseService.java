@@ -7,6 +7,7 @@ import com.phraseforge.phraseforge_api.category.CategoryRepository;
 import com.phraseforge.phraseforge_api.common.PagedResponse;
 import com.phraseforge.phraseforge_api.exception.DuplicateResourceException;
 import com.phraseforge.phraseforge_api.exception.ResourceNotFoundException;
+import com.phraseforge.phraseforge_api.favorite.FavoriteService;
 import com.phraseforge.phraseforge_api.phrase.dto.CreatePhraseRequest;
 import com.phraseforge.phraseforge_api.phrase.dto.PhraseResponse;
 import com.phraseforge.phraseforge_api.phrase.dto.PhraseSummaryResponse;
@@ -19,6 +20,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.security.SecureRandom;
 import java.util.Set;
@@ -31,18 +35,21 @@ public class PhraseService {
     private final CategoryRepository categoryRepository;
     private final TagRepository tagRepository;
     private final PhraseMapper phraseMapper;
+    private final FavoriteService favoriteService;
     private final SecureRandom secureRandom = new SecureRandom();
 
     public PhraseService(PhraseRepository phraseRepository,
                          AuthorRepository authorRepository,
                          CategoryRepository categoryRepository,
                          TagRepository tagRepository,
-                         PhraseMapper phraseMapper) {
+                         PhraseMapper phraseMapper,
+                         FavoriteService favoriteService) {
         this.phraseRepository = phraseRepository;
         this.authorRepository = authorRepository;
         this.categoryRepository = categoryRepository;
         this.tagRepository = tagRepository;
         this.phraseMapper = phraseMapper;
+        this.favoriteService = favoriteService;
     }
 
     @Transactional(readOnly = true)
@@ -50,12 +57,18 @@ public class PhraseService {
                                                      Long tagId, String language, Pageable pageable) {
         Specification<Phrase> spec = PhraseSpecifications.filter(query, authorId, categoryId, tagId, language);
         Page<Phrase> page = phraseRepository.findAll(spec, pageable);
-        return PagedResponse.from(page.map(phraseMapper::toSummary));
+        Set<Long> favoritedIds = favoriteService.favoritedPhraseIds(currentUserId(), page.stream()
+                .map(Phrase::getId)
+                .collect(java.util.stream.Collectors.toSet()));
+        return PagedResponse.from(page.map(phrase -> phraseMapper.toSummary(phrase, favoritedIds.contains(phrase.getId()))));
     }
 
     @Transactional(readOnly = true)
     public PhraseResponse getById(Long id) {
-        return phraseMapper.toResponse(findWithDetailsOrThrow(id));
+        Phrase phrase = findWithDetailsOrThrow(id);
+        boolean favorited = favoriteService.favoritedPhraseIds(currentUserId(), Set.of(phrase.getId()))
+                .contains(phrase.getId());
+        return phraseMapper.toResponse(phrase, favorited);
     }
 
     @Transactional
@@ -103,7 +116,9 @@ public class PhraseService {
         Page<Phrase> page = phraseRepository.findAll(PageRequest.of(randomIndex, 1));
         Phrase phrase = page.getContent().stream().findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException("No phrases available"));
-        return phraseMapper.toResponse(phrase);
+        boolean favorited = favoriteService.favoritedPhraseIds(currentUserId(), Set.of(phrase.getId()))
+                .contains(phrase.getId());
+        return phraseMapper.toResponse(phrase, favorited);
     }
 
     private void ensureNotDuplicate(String content, Long authorId) {
@@ -125,6 +140,18 @@ public class PhraseService {
     private Phrase findWithDetailsOrThrow(Long id) {
         return phraseRepository.findWithDetailsById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Phrase not found: " + id));
+    }
+
+    private Long currentUserId() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof Jwt jwt)) {
+            return null;
+        }
+        try {
+            return Long.valueOf(jwt.getSubject());
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     private void attachCategories(Phrase phrase, Set<Long> categoryIds) {

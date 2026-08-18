@@ -145,6 +145,10 @@ POST   /api/v1/auth/register    cria conta; retorna access token e define cookie
 POST   /api/v1/auth/login       inicia sessão; retorna access token e define cookie de refresh
 POST   /api/v1/auth/refresh     rotaciona o cookie de refresh e retorna novo access token
 POST   /api/v1/auth/logout      revoga a sessão atual e remove o cookie de refresh
+
+GET    /api/v1/users/me/favorites             lista os favoritos do usuário autenticado
+PUT    /api/v1/users/me/favorites/{phraseId}  adiciona aos favoritos, de forma idempotente
+DELETE /api/v1/users/me/favorites/{phraseId}  remove dos favoritos, de forma idempotente
 ```
 
 Respostas de erro consistentes: `{ "status", "message", "timestamp" }`.
@@ -157,6 +161,10 @@ Leituras do catálogo (`GET /api/v1/**`) permanecem públicas. Alterações
 (`POST`, `PUT` e `DELETE`) exigem um access token de usuário com papel
 `ADMIN`; tokens ausentes ou inválidos recebem `401` e usuários sem esse papel,
 `403`.
+
+Os endpoints de favoritos exigem um access token de qualquer usuário
+autenticado. As respostas de frases contêm `favorited`, que indica o estado
+para o usuário do token e é `false` em requisições anônimas.
 
 ## Estrutura do projeto
 
