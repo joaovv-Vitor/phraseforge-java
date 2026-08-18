@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
+import Brand from './Brand'
 
 const navLinks = [
   { to: '/explore', label: 'Explorar' },
@@ -22,12 +23,7 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-hair-subtle bg-paper">
       <div className="mx-auto flex h-[52px] max-w-[1040px] items-center justify-between px-8">
-        <button
-          onClick={() => navigate('/')}
-          className="font-serif text-base font-medium tracking-tight text-ink"
-        >
-          PhraseForge
-        </button>
+        <Brand />
 
         <nav className="hidden items-center gap-1 md:flex">
           {navLinks.map((link) => (

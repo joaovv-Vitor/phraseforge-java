@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { ApiError } from '../services/api'
+import Brand from '../components/Brand'
 
 type Mode = 'login' | 'register'
 
@@ -40,7 +41,8 @@ export default function AuthPage({ mode }: { mode: Mode }) {
   return (
     <main className="mx-auto flex min-h-[calc(100vh-52px)] w-full max-w-[440px] items-center px-6 py-14">
       <section className="w-full rounded-sm border border-hair bg-card p-7 shadow-[0_12px_40px_rgb(17_17_16/0.04)] sm:p-9">
-        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-faint">PhraseForge</p>
+        <Brand />
+        <p className="mb-2 mt-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-faint">Sua conta</p>
         <h1 className="mb-2 font-serif text-2xl text-ink">{registering ? 'Crie sua conta' : 'Que bom ter você de volta'}</h1>
         <p className="mb-7 text-sm text-ink-muted">
           {registering ? 'Salve suas frases favoritas e encontre-as quando quiser.' : 'Entre para acessar seus favoritos.'}

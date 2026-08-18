@@ -1,4 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router-dom'
+import Brand from '../components/Brand'
 
 const navItems = [
   { to: '/admin', label: 'Painel', end: true },
@@ -12,9 +13,7 @@ export default function AdminLayout() {
   return (
     <div className="min-h-screen bg-paper">
       <div className="flex h-[52px] items-center justify-between border-b border-hair-subtle bg-paper px-8">
-        <Link to="/" className="font-serif text-base font-medium tracking-tight text-ink">
-          PhraseForge
-        </Link>
+        <Brand />
         <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink-faint">Admin</span>
         <Link to="/" className="text-[13px] text-ink-muted transition-colors hover:text-ink">
           ← Voltar ao site
