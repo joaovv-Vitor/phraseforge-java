@@ -1,5 +1,6 @@
 package com.phraseforge.phraseforge_api.category;
 
+import com.phraseforge.phraseforge_api.support.DatabaseFixtureCleanup;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -9,7 +10,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
-class CategoryRepositoryTest {
+class CategoryRepositoryTest extends DatabaseFixtureCleanup {
 
     @Autowired
     private CategoryRepository categoryRepository;

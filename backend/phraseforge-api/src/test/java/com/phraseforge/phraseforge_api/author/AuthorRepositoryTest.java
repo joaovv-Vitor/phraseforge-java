@@ -1,5 +1,6 @@
 package com.phraseforge.phraseforge_api.author;
 
+import com.phraseforge.phraseforge_api.support.DatabaseFixtureCleanup;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -10,7 +11,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @DataJpaTest
-class AuthorRepositoryTest {
+class AuthorRepositoryTest extends DatabaseFixtureCleanup {
 
     @Autowired
     private AuthorRepository authorRepository;

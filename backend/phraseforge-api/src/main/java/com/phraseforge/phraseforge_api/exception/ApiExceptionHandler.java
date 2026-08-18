@@ -1,5 +1,7 @@
 package com.phraseforge.phraseforge_api.exception;
 
+import com.phraseforge.phraseforge_api.auth.InvalidCredentialsException;
+import com.phraseforge.phraseforge_api.auth.InvalidRefreshTokenException;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,6 +41,17 @@ public class ApiExceptionHandler {
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiError> handleUnreadable(HttpMessageNotReadableException ex) {
         return ResponseEntity.badRequest().body(ApiError.of(400, "Malformed request body"));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiError> handleIllegalArgument(IllegalArgumentException ex) {
+        return ResponseEntity.badRequest().body(ApiError.of(400, ex.getMessage()));
+    }
+
+    @ExceptionHandler({InvalidCredentialsException.class, InvalidRefreshTokenException.class})
+    public ResponseEntity<ApiError> handleUnauthorized(RuntimeException ex) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(ApiError.of(401, ex.getMessage()));
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)
