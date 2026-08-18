@@ -2,6 +2,7 @@ package com.phraseforge.phraseforge_api.favorite;
 
 import com.phraseforge.phraseforge_api.common.PagedResponse;
 import com.phraseforge.phraseforge_api.phrase.dto.PhraseSummaryResponse;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/users/me/favorites")
+@SecurityRequirement(name = "bearerAuth")
 public class FavoriteController {
 
     private final FavoriteService favoriteService;

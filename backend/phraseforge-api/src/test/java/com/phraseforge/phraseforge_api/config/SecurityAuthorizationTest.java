@@ -43,10 +43,34 @@ class SecurityAuthorizationTest {
     }
 
     @Test
+    void catalogWrites_rejectMalformedBearerToken() throws Exception {
+        mockMvc.perform(post("/api/v1/phrases")
+                        .header(HttpHeaders.AUTHORIZATION, "Bearer malformed")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.code").value("UNAUTHORIZED"));
+    }
+
+    @Test
     void favorites_requireAuthentication() throws Exception {
         mockMvc.perform(get("/api/v1/users/me/favorites"))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.status").value(401));
+    }
+
+    @Test
+    void refresh_rejectsMissingOrigin() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/refresh"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("INVALID_ORIGIN"));
+    }
+
+    @Test
+    void logout_acceptsConfiguredOrigin() throws Exception {
+        mockMvc.perform(post("/api/v1/auth/logout")
+                        .header("Origin", "http://localhost:5173"))
+                .andExpect(status().isNoContent());
     }
 
     @Test

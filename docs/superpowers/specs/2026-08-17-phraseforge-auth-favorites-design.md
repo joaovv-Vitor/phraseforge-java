@@ -1,10 +1,10 @@
 # PhraseForge — Authentication and Favorites Design
 
-**Status:** Proposed for V1
+**Status:** Implemented in V1
 
 **Date:** 2026-08-17
 
-**Base:** stabilized MVP on `fix/mvp-stabilization`
+**Base:** stabilized MVP
 
 ## 1. Objective
 

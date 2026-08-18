@@ -1,8 +1,6 @@
 # PhraseForge
 
-Biblioteca digital de frases de pensadores, filósofos, escritores e outras
-personalidades. Projeto de estudo em **Java 25 + Spring Boot** (backend) e
-**React + TypeScript** (frontend).
+Biblioteca digital de frases de pensadores, filósofos, escritores e outras personalidades. Projeto de estudo em **Java 25 + Spring Boot** (backend) e **React + TypeScript** (frontend).
 
 ## Objetivo
 
@@ -26,16 +24,17 @@ sofisticada, definida pelo protótipo em `docs/prototype/`.
 
 Backend monolítico e modular, organizado por domínio:
 
-```
-author/    category/    tag/    phrase/    → controller → service → repository → entity
+```text
+author/    category/    tag/    phrase/    -> controller -> service -> repository -> entity
+auth/      user/        favorite/          -> autenticação, autorização e favoritos
 common/    (AuditableEntity, PagedResponse, SlugUtil)
-config/    (CorsConfig, OpenApiConfig)
+config/    (segurança, CORS, OpenAPI e limites de autenticação)
 exception/ (@RestControllerAdvice, ApiError)
 ```
 
 - DTOs na comunicação com a API (entidades nunca são serializadas).
-- Auditoria reutilizável via `AuditableEntity` (created_at/updated_at).
-- Relacionamentos N:N (`Phrase` ↔ `Category`, `Phrase` ↔ `Tag`) através das
+- Auditoria reutilizável via `AuditableEntity` (`created_at` e `updated_at`).
+- Relacionamentos N:N (`Phrase` com `Category` e `Tag`) através das
   tabelas de junção `phrase_categories`/`phrase_tags`.
 - Banco criado exclusivamente pelo Flyway (`ddl-auto=validate`).
 
@@ -59,7 +58,7 @@ cd backend/phraseforge-api
 ./mvnw spring-boot:run
 ```
 
-As migrations Flyway (V1–V10) criam o schema; V7 também insere dados de demonstração.
+As migrations Flyway de V1 a V10 criam o schema; V7 também insere dados de demonstração.
 API disponível em `http://localhost:8080/api/v1`.
 Swagger UI: `http://localhost:8080/swagger-ui.html`.
 Actuator health: `http://localhost:8080/actuator/health`.
@@ -106,6 +105,8 @@ Copie `.env.example` para `.env` e ajuste:
 | `JWT_ACCESS_TTL` | Duração ISO-8601 do access token | `PT15M` |
 | `REFRESH_TOKEN_TTL` | Duração ISO-8601 da sessão de refresh | `P30D` |
 | `COOKIE_SECURE` | Exige HTTPS para o cookie de refresh | `false` no Compose local; `true` em produção |
+| `AUTH_RATE_LIMIT_MAX_ATTEMPTS` | Máximo de tentativas de login ou cadastro por IP e rota dentro da janela | `10` |
+| `AUTH_RATE_LIMIT_WINDOW` | Janela ISO-8601 do limite de autenticação | `PT1M` |
 | `VITE_API_URL` | Base URL da API para o frontend; em Docker é um build arg | `/api/v1` |
 
 Nunca commite credenciais reais. Após criar o primeiro administrador, remova a
@@ -120,7 +121,7 @@ Documentação interativa (Swagger): `http://localhost:8080/swagger-ui.html`.
 
 ### Endpoints principais
 
-```
+```text
 GET    /api/v1/phrases           listagem paginada + filtros (query, authorId, categoryId, tagId, language)
 GET    /api/v1/phrases/random    frase aleatória
 GET    /api/v1/phrases/{id}      detalhe
@@ -146,16 +147,17 @@ POST   /api/v1/auth/login       inicia sessão; retorna access token e define co
 POST   /api/v1/auth/refresh     rotaciona o cookie de refresh e retorna novo access token
 POST   /api/v1/auth/logout      revoga a sessão atual e remove o cookie de refresh
 
+GET    /api/v1/users/me                       retorna o perfil autenticado
 GET    /api/v1/users/me/favorites             lista os favoritos do usuário autenticado
 PUT    /api/v1/users/me/favorites/{phraseId}  adiciona aos favoritos, de forma idempotente
 DELETE /api/v1/users/me/favorites/{phraseId}  remove dos favoritos, de forma idempotente
 ```
 
-Respostas de erro consistentes: `{ "status", "message", "timestamp" }`.
+Respostas de erro consistentes: `{ "status", "code", "message", "timestamp" }`. O campo `code` é estável e pode ser usado pelo cliente para decidir como tratar o erro.
 Os access tokens devem ser enviados em `Authorization: Bearer <token>`. O
-cookie de refresh é `HttpOnly`, `SameSite=Strict` e limitado a `/api/v1/auth`;
-o cliente web deve usar requisições com credenciais para os endpoints de
-refresh e logout.
+cookie de refresh é `HttpOnly`, `SameSite=Strict` e limitado a `/api/v1/auth`; o cliente web deve usar requisições com credenciais para os endpoints de refresh e logout. Essas duas operações também exigem um cabeçalho `Origin` que corresponda exatamente a uma entrada de `CORS_ALLOWED_ORIGINS`.
+
+Login e cadastro têm um limite básico por instância, endereço IP e rota. Quando o limite é excedido, a API responde com `429`, código `RATE_LIMITED` e cabeçalho `Retry-After`.
 
 Leituras do catálogo (`GET /api/v1/**`) permanecem públicas. Alterações
 (`POST`, `PUT` e `DELETE`) exigem um access token de usuário com papel
@@ -179,7 +181,7 @@ se a API rejeitar a operação.
 
 ## Estrutura do projeto
 
-```
+```text
 ├── backend/phraseforge-api/   Spring Boot (Maven)
 ├── frontend/                  Vite + React + TS
 │   ├── Dockerfile             Build multi-stage Node + Nginx
@@ -190,45 +192,43 @@ se a API rejeitar a operação.
 └── README.md
 ```
 
-## Limitações do MVP (deliberadas)
+## Limitações conhecidas
 
 - **Ano das frases:** o campo `phrases.year` (`SMALLINT`) representa o ano
-  associado à frase/fonte — **não necessariamente a data exata em que a frase
+  associado à frase/fonte. Ele **não representa necessariamente a data exata em que a frase
   foi dita ou escrita**. O MVP não modela eras (a.C./d.C.) nem datas
   aproximadas ("c. 170 d.C."). Anos incertos não são preenchidos, e números
   não devem ser lidos como precisão histórica quando a fonte é incerta.
-- **Interface administrativa:** a API já protege alterações por papel
-  `ADMIN`; a adaptação dos controles e fluxos de sessão no frontend é uma
-  etapa posterior da V1.
 - **Busca:** filtros via query string (contém), sem busca full-text do MySQL.
+- **Limite de autenticação:** o controle de tentativas fica em memória e atua por instância. Um ambiente distribuído deve usar um armazenamento compartilhado no gateway ou em outro componente de infraestrutura.
 
 ## Testes
 
 ```bash
 cd backend/phraseforge-api
 ./mvnw test
+
+cd ../../frontend
+npm test
+npm run lint
+npm run build
 ```
 
 Testes de service (Mockito), repository (`@DataJpaTest` com H2 em modo MySQL)
 e controller (`@WebMvcTest`). O H2 é dependência apenas de teste; produção e
 desenvolvimento usam MySQL. Java 25 executa o Mockito como agente configurado
-no Maven Surefire.
+no Maven Surefire. O frontend usa Vitest para regressões do cliente HTTP.
 
-## Estado da estabilização
+## Estado do projeto
 
-A branch `fix/mvp-stabilization` contém as correções de contratos TypeScript,
-validação de recursos relacionados, paginação de listas, carregamento paginado
-de opções administrativas, configuração do agente Mockito e execução do
-frontend via Docker Compose.
+O MVP e a V1 estão implementados. A V1 inclui contas, sessões com rotação de refresh token, autorização por papel, favoritos, proteção de rotas no frontend e endurecimento básico dos endpoints de autenticação.
 
 ## Roadmap
 
-**MVP** — Catálogo de frases · Autores · Categorias · Tags · Pesquisa ·
-Filtros · Frase aleatória · CRUD administrativo · API REST
+**MVP concluído:** Catálogo de frases, autores, categorias, tags, pesquisa, filtros, frase aleatória, CRUD administrativo e API REST.
 
-**V1** — Autenticação · JWT · Usuários · Roles · Favoritos
+**V1 concluída:** Autenticação, JWT, usuários, papéis e favoritos.
 
 [Especificação de autenticação e favoritos](docs/superpowers/specs/2026-08-17-phraseforge-auth-favorites-design.md)
 
-**V2** — Ranking · Frase do dia · Recomendações · Histórico · Sugestões ·
-Recursos avançados da API
+**V2 planejada:** Ranking, frase do dia, recomendações, histórico, sugestões e recursos avançados da API.

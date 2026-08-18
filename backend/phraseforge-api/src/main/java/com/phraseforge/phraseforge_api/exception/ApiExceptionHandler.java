@@ -25,58 +25,58 @@ public class ApiExceptionHandler {
                 .map(error -> error.getField() + ": " + error.getDefaultMessage())
                 .findFirst()
                 .orElse("Validation failed");
-        return ResponseEntity.badRequest().body(ApiError.of(400, message));
+        return ResponseEntity.badRequest().body(ApiError.of(400, "VALIDATION_ERROR", message));
     }
 
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ApiError> handleConstraintViolation(ConstraintViolationException ex) {
-        return ResponseEntity.badRequest().body(ApiError.of(400, "Invalid request parameters"));
+        return ResponseEntity.badRequest().body(ApiError.of(400, "INVALID_REQUEST", "Invalid request parameters"));
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)
     public ResponseEntity<ApiError> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
-        return ResponseEntity.badRequest().body(ApiError.of(400, "Invalid parameter: " + ex.getName()));
+        return ResponseEntity.badRequest().body(ApiError.of(400, "INVALID_PARAMETER", "Invalid parameter: " + ex.getName()));
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
     public ResponseEntity<ApiError> handleUnreadable(HttpMessageNotReadableException ex) {
-        return ResponseEntity.badRequest().body(ApiError.of(400, "Malformed request body"));
+        return ResponseEntity.badRequest().body(ApiError.of(400, "MALFORMED_BODY", "Malformed request body"));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiError> handleIllegalArgument(IllegalArgumentException ex) {
-        return ResponseEntity.badRequest().body(ApiError.of(400, ex.getMessage()));
+        return ResponseEntity.badRequest().body(ApiError.of(400, "INVALID_REQUEST", ex.getMessage()));
     }
 
     @ExceptionHandler({InvalidCredentialsException.class, InvalidRefreshTokenException.class})
     public ResponseEntity<ApiError> handleUnauthorized(RuntimeException ex) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                .body(ApiError.of(401, ex.getMessage()));
+                .body(ApiError.of(401, "INVALID_CREDENTIALS", ex.getMessage()));
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiError> handleNotFound(ResourceNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                .body(ApiError.of(404, ex.getMessage()));
+                .body(ApiError.of(404, "RESOURCE_NOT_FOUND", ex.getMessage()));
     }
 
     @ExceptionHandler(DuplicateResourceException.class)
     public ResponseEntity<ApiError> handleConflict(DuplicateResourceException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(ApiError.of(409, ex.getMessage()));
+                .body(ApiError.of(409, "RESOURCE_CONFLICT", ex.getMessage()));
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ApiError> handleDataIntegrity(DataIntegrityViolationException ex) {
         // Catches unique-constraint races that slip past service checks.
         return ResponseEntity.status(HttpStatus.CONFLICT)
-                .body(ApiError.of(409, "Resource conflicts with existing data"));
+                .body(ApiError.of(409, "RESOURCE_CONFLICT", "Resource conflicts with existing data"));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleGeneric(Exception ex) {
         log.error("Unhandled exception", ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiError.of(500, "Internal server error"));
+                .body(ApiError.of(500, "INTERNAL_ERROR", "Internal server error"));
     }
 }

@@ -6,15 +6,18 @@ let pendingRefresh: Promise<string | null> | null = null
 
 export class ApiError extends Error {
   status: number
+  code: string | null
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, code: string | null = null) {
     super(message)
     this.status = status
+    this.code = code
   }
 }
 
 export interface ApiErrorBody {
   status: number
+  code: string
   message: string
   timestamp: string
 }
@@ -51,13 +54,15 @@ async function request<T>(path: string, options: RequestInit = {}, retried = fal
 
   if (!res.ok) {
     let message = `Request failed with status ${res.status}`
+    let code: string | null = null
     try {
       const body = (await res.json()) as ApiErrorBody
       message = body.message ?? message
+      code = body.code ?? null
     } catch {
       // non-JSON error body; keep generic message
     }
-    throw new ApiError(res.status, message)
+    throw new ApiError(res.status, message, code)
   }
 
   if (res.status === 204) {

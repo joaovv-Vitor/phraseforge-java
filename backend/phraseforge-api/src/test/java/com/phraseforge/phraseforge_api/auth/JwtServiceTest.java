@@ -3,6 +3,7 @@ package com.phraseforge.phraseforge_api.auth;
 import com.phraseforge.phraseforge_api.user.User;
 import com.phraseforge.phraseforge_api.user.UserRole;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Clock;
@@ -41,6 +42,31 @@ class JwtServiceTest {
         assertThatThrownBy(() -> new JwtService(new AuthProperties("c2hvcnQ=", "issuer", Duration.ofMinutes(1), Duration.ofDays(1), false)))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("at least 32 bytes");
+    }
+
+    @Test
+    void decode_rejectsExpiredToken() {
+        JwtService jwtService = new JwtService(
+                properties(), Clock.fixed(NOW.minus(Duration.ofHours(1)), ZoneOffset.UTC));
+
+        String token = jwtService.issue(user(42L, UserRole.USER)).value();
+
+        assertThatThrownBy(() -> jwtService.decode(token))
+                .isInstanceOf(JwtException.class);
+    }
+
+    @Test
+    void decode_rejectsTokenSignedWithAnotherSecret() {
+        String otherSecret = "ZmVkY2JhOTg3NjU0MzIxMGZlZGNiYTk4NzY1NDMyMTA=";
+        JwtService trustedService = new JwtService(properties(), Clock.fixed(NOW, ZoneOffset.UTC));
+        JwtService untrustedService = new JwtService(
+                new AuthProperties(otherSecret, "phraseforge-test", Duration.ofMinutes(15), Duration.ofDays(30), false),
+                Clock.fixed(NOW, ZoneOffset.UTC));
+
+        String token = untrustedService.issue(user(42L, UserRole.USER)).value();
+
+        assertThatThrownBy(() -> trustedService.decode(token))
+                .isInstanceOf(JwtException.class);
     }
 
     private static AuthProperties properties() {

@@ -27,7 +27,7 @@ public class SecurityExceptionHandlers implements AuthenticationEntryPoint, Acce
             HttpServletRequest request,
             HttpServletResponse response,
             AuthenticationException exception) throws IOException {
-        write(response, HttpServletResponse.SC_UNAUTHORIZED, "Authentication is required");
+        write(response, HttpServletResponse.SC_UNAUTHORIZED, "UNAUTHORIZED", "Authentication is required");
     }
 
     @Override
@@ -35,12 +35,12 @@ public class SecurityExceptionHandlers implements AuthenticationEntryPoint, Acce
             HttpServletRequest request,
             HttpServletResponse response,
             AccessDeniedException exception) throws IOException {
-        write(response, HttpServletResponse.SC_FORBIDDEN, "You do not have permission to access this resource");
+        write(response, HttpServletResponse.SC_FORBIDDEN, "FORBIDDEN", "You do not have permission to access this resource");
     }
 
-    private void write(HttpServletResponse response, int status, String message) throws IOException {
+    public void write(HttpServletResponse response, int status, String code, String message) throws IOException {
         response.setStatus(status);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        objectMapper.writeValue(response.getOutputStream(), ApiError.of(status, message));
+        objectMapper.writeValue(response.getOutputStream(), ApiError.of(status, code, message));
     }
 }
