@@ -153,6 +153,11 @@ cookie de refresh é `HttpOnly`, `SameSite=Strict` e limitado a `/api/v1/auth`;
 o cliente web deve usar requisições com credenciais para os endpoints de
 refresh e logout.
 
+Leituras do catálogo (`GET /api/v1/**`) permanecem públicas. Alterações
+(`POST`, `PUT` e `DELETE`) exigem um access token de usuário com papel
+`ADMIN`; tokens ausentes ou inválidos recebem `401` e usuários sem esse papel,
+`403`.
+
 ## Estrutura do projeto
 
 ```
@@ -173,9 +178,9 @@ refresh e logout.
   foi dita ou escrita**. O MVP não modela eras (a.C./d.C.) nem datas
   aproximadas ("c. 170 d.C."). Anos incertos não são preenchidos, e números
   não devem ser lidos como precisão histórica quando a fonte é incerta.
-- **Autorização transitória:** os endpoints de autenticação já existem, mas a
-  proteção das rotas administrativas por papel será aplicada na próxima etapa
-  da V1.
+- **Interface administrativa:** a API já protege alterações por papel
+  `ADMIN`; a adaptação dos controles e fluxos de sessão no frontend é uma
+  etapa posterior da V1.
 - **Busca:** filtros via query string (contém), sem busca full-text do MySQL.
 
 ## Testes
