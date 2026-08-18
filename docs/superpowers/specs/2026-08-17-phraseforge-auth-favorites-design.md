@@ -96,7 +96,8 @@ CORS must use explicit origins and credentials rather than wildcards.
 
 - Passwords are encoded through Spring Security's `PasswordEncoder`; plaintext is
   never logged or persisted.
-- Initial policy: 12–128 characters.
+- Initial policy: at least 12 characters and at most 72 UTF-8 bytes (the BCrypt
+  input limit).
 - Email is trimmed and normalized to lowercase before lookup and persistence.
 - Login always returns the same generic error for an unknown email, wrong password,
   disabled user, or invalid credentials.

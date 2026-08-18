@@ -99,9 +99,12 @@ Copie `.env.example` para `.env` e ajuste:
 | `DB_PASSWORD` | Senha | `phraseforge` |
 | `MYSQL_ROOT_PASSWORD` | Senha root do container MySQL | `phraseforge-root` |
 | `CORS_ALLOWED_ORIGINS` | Origens permitidas no CORS | `http://localhost:5173` |
+| `APP_BOOTSTRAP_ADMIN_EMAIL` | E-mail do primeiro administrador; exige a senha correspondente | vazio |
+| `APP_BOOTSTRAP_ADMIN_PASSWORD` | Senha usada uma única vez para criar o primeiro administrador | vazio |
 | `VITE_API_URL` | Base URL da API para o frontend; em Docker é um build arg | `/api/v1` |
 
-Nunca commite credenciais reais.
+Nunca commite credenciais reais. Após criar o primeiro administrador, remova a
+senha de bootstrap do ambiente de execução.
 
 ## API
 
